@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/config/admob_config.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../data/models/analysis_session.dart';
@@ -20,11 +21,13 @@ class _AnalysisProgressScreenState extends ConsumerState<AnalysisProgressScreen>
   late AnalysisStage _currentStage;
   double _progressFraction = 0.0;
   String? _errorMessage;
+  final InterstitialAdService _adService = InterstitialAdService();
 
   @override
   void initState() {
     super.initState();
     _currentStage = AnalysisStage.validatingFile;
+    _adService.loadInterstitialAd();
     _runAnalysisFlow();
   }
 
@@ -32,9 +35,11 @@ class _AnalysisProgressScreenState extends ConsumerState<AnalysisProgressScreen>
     final subService = ref.read(subscriptionServiceProvider);
     final isPro = subService.isProActive;
 
+    // Zero banner ads to preserve clean YouTube UI design.
+    // Interstitial ads shown for Free Tier users only (0 Ads for Pro users).
     if (!isPro && !widget.session.adSlot1Shown) {
       widget.session.adSlot1Shown = true;
-      await Future.delayed(const Duration(milliseconds: 300));
+      await _adService.showInterstitialAdIfAvailable();
     }
 
     try {
@@ -57,7 +62,7 @@ class _AnalysisProgressScreenState extends ConsumerState<AnalysisProgressScreen>
 
       if (!isPro && !widget.session.adSlot2Shown) {
         widget.session.adSlot2Shown = true;
-        await Future.delayed(const Duration(milliseconds: 300));
+        await _adService.showInterstitialAdIfAvailable();
       }
 
       final dailyUsageService = ref.read(dailyUsageServiceProvider);

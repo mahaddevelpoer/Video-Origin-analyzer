@@ -47,5 +47,7 @@
 	<true/>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Video Origin Analyzer requires access to your photo library to select videos for local forensic origin analysis.</string>
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-1107688707504015~5138881223</string>
 </dict>
 </plist>
