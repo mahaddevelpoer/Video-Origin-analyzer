@@ -1,22 +1,24 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/config/app_config.dart';
+import 'core/config/firebase_options.dart';
 import 'core/providers/app_providers.dart';
 import 'core/theme/app_theme.dart';
-import 'features/auth/presentation/splash_screen.dart';
+import 'features/auth/presentation/welcome_screen.dart';
+import 'features/home/presentation/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase (Gracefully handles unconfigured environment)
+  // Initialize Firebase with Platform Options
   try {
-    if (!kIsWeb) {
-      await Firebase.initializeApp();
-    }
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
   } catch (e) {
     debugPrint('Firebase Core Init Notice: $e');
   }
@@ -44,8 +46,37 @@ class VideoOriginAnalyzerApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.dark, // Default to classic forensic dark theme
-      home: const SplashScreen(),
+      themeMode: ThemeMode.light,
+      home: const AuthGate(),
+    );
+  }
+}
+
+/// Authentication Gate enforcing login/register requirement before accessing HomeScreen
+class AuthGate extends ConsumerWidget {
+  const AuthGate({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(color: Color(0xFFFF0000)),
+            ),
+          );
+        }
+
+        // If user is authenticated via Email, Google, or Apple -> HomeScreen
+        if (snapshot.hasData && snapshot.data != null) {
+          return const HomeScreen();
+        }
+
+        // If unauthenticated -> Require Login / Register / Google Sign-In
+        return const WelcomeScreen();
+      },
     );
   }
 }

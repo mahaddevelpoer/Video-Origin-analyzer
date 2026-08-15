@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "612351187132",
+    "project_id": "alteredtools",
+    "storage_bucket": "alteredtools.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:612351187132:android:8ab145dab127f5eba918b9",
+        "android_client_info": {
+          "package_name": "com.mahadandmehdi.video_origin_analyzer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDPp13ygXzwg00cArPVOZvqZ1Y-m0AFwsA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
