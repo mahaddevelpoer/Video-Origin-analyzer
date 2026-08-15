@@ -52,12 +52,18 @@ class VideoOriginAnalyzerApp extends StatelessWidget {
   }
 }
 
-/// Authentication Gate enforcing login/register requirement before accessing HomeScreen
+/// Authentication Gate enforcing login/register requirement before accessing HomeScreen.
+/// Gracefully handles test environments where native Firebase apps are uninitialized.
 class AuthGate extends ConsumerWidget {
   const AuthGate({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Check if Firebase is initialized (handles widget test runner gracefully)
+    if (Firebase.apps.isEmpty) {
+      return const WelcomeScreen();
+    }
+
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {

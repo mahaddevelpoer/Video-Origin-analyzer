@@ -13,12 +13,12 @@ class WelcomeScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.lightBackground,
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
               // App Identity Header
               Row(
                 children: [
@@ -57,46 +57,46 @@ class WelcomeScreen extends StatelessWidget {
                   ),
                 ],
               ),
-              const Spacer(),
+              const SizedBox(height: 24),
               const Text(
                 'Local Video Origin & Forensic Analysis',
                 style: TextStyle(
-                  fontSize: 26,
+                  fontSize: 24,
                   fontWeight: FontWeight.bold,
                   color: AppColors.textDark,
                   height: 1.2,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               const Text(
                 'Identify original social media platforms (TikTok, Instagram, YouTube, Snapchat, Facebook) and intermediate compression channels (WhatsApp) using multi-signal evidence analysis.',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 13,
                   color: AppColors.textMuted,
-                  height: 1.5,
+                  height: 1.4,
                 ),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 20),
 
               _buildFeatureRow(
                 icon: Icons.security,
                 title: 'Local-First Privacy',
                 subtitle: 'Videos are processed 100% on your device. Never uploaded.',
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
               _buildFeatureRow(
                 icon: Icons.account_tree,
                 title: 'Multi-Signal Evidence',
                 subtitle: 'Metadata, codec profile, aspect ratio, audio & compression analysis.',
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
               _buildFeatureRow(
                 icon: Icons.find_in_page,
                 title: 'Transparent Reporting',
                 subtitle: 'Clear evidence breakdown explaining why conclusions were reached.',
               ),
 
-              const Spacer(),
+              const SizedBox(height: 28),
 
               ElevatedButton(
                 onPressed: () {
