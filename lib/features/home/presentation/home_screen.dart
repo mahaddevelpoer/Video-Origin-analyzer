@@ -93,12 +93,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       style: TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(width: 6),
-                    const Text(
-                      AppConfig.developerName,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textDark,
+                    const Expanded(
+                      child: Text(
+                        AppConfig.developerName,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textDark,
+                        ),
                       ),
                     ),
                   ],

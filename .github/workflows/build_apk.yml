@@ -35,11 +35,11 @@ jobs:
       - name: Run unit tests
         run: flutter test
 
-      - name: Build Android APK
-        run: flutter build apk --split-per-abi --no-tree-shake-icons --android-skip-build-dependency-validation
+      - name: Build Single Universal Android APK
+        run: flutter build apk --release --no-tree-shake-icons --android-skip-build-dependency-validation
 
-      - name: Upload APK Artifacts
+      - name: Upload Single Release APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: video-origin-analyzer-apk
-          path: build/app/outputs/flutter-apk/*.apk
+          name: Video-Origin-Analyzer-Release.apk
+          path: build/app/outputs/flutter-apk/app-release.apk

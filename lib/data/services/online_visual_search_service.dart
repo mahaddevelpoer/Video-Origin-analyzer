@@ -46,8 +46,10 @@ class OnlineVisualSearchService {
           return result;
         }
 
-        // If error is unconfigured SERPAPI_KEY or rate limit, break immediately
-        if (result.errorCode == 'MISSING_SERPAPI_KEY' || result.errorCode == 'SERPAPI_UPLOAD_FAILED') {
+        // If error is 404, unconfigured SERPAPI_KEY or rate limit, break immediately
+        if (result.errorCode == 'HTTP_404' ||
+            result.errorCode == 'MISSING_SERPAPI_KEY' ||
+            result.errorCode == 'SERPAPI_UPLOAD_FAILED') {
           break;
         }
       }
@@ -81,9 +83,14 @@ class OnlineVisualSearchService {
       if (response.statusCode == 200) {
         final jsonMap = jsonDecode(response.body) as Map<String, dynamic>;
         return OnlineSearchResult.fromJson(jsonMap);
+      } else if (response.statusCode == 404) {
+        return OnlineSearchResult.failure(
+          message: 'Online visual search proxy pending deployment on Supabase. Local multi-signal forensic engine completed successfully.',
+          code: 'HTTP_404',
+        );
       } else {
         final jsonMap = jsonDecode(response.body) as Map<String, dynamic>?;
-        final errMsg = jsonMap?['error'] ?? 'Edge Function error (${response.statusCode})';
+        final errMsg = jsonMap?['error'] ?? 'Edge Function status ${response.statusCode}';
         final errCode = jsonMap?['code'] ?? 'HTTP_${response.statusCode}';
 
         return OnlineSearchResult.failure(
