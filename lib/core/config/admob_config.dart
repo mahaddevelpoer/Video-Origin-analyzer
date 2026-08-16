@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 /// Central AdMob Configuration for Video Origin Analyzer
-/// Developer: Mahad and Mehdi Developers
+/// Developer: Mahadand Mehdi Developers
 class AdMobConfig {
   // AdMob App ID
   static const String appIdAndroid = 'ca-app-pub-1107688707504015~5138881223';
@@ -13,6 +13,10 @@ class AdMobConfig {
       'ca-app-pub-1107688707504015/4860463446';
   static const String interstitialAdUnitIdIOS =
       'ca-app-pub-1107688707504015/4860463446';
+
+  // Official Test Unit ID Fallback (Guarantees ads show during testing)
+  static const String testInterstitialAdUnitId =
+      'ca-app-pub-3940256099942544/1033173712';
 
   static String get interstitialAdUnitId {
     if (defaultTargetPlatform == TargetPlatform.android) {
@@ -29,23 +33,33 @@ class InterstitialAdService {
   InterstitialAd? _interstitialAd;
   bool _isAdLoading = false;
 
-  void loadInterstitialAd() {
+  void loadInterstitialAd({bool isFallback = false}) {
     if (kIsWeb || _isAdLoading) return;
     _isAdLoading = true;
 
+    final targetUnitId = isFallback
+        ? AdMobConfig.testInterstitialAdUnitId
+        : AdMobConfig.interstitialAdUnitId;
+
     InterstitialAd.load(
-      adUnitId: AdMobConfig.interstitialAdUnitId,
+      adUnitId: targetUnitId,
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
           _interstitialAd = ad;
           _isAdLoading = false;
-          debugPrint('AdMob Interstitial Ad Loaded Successfully.');
+          debugPrint('AdMob Interstitial Ad Loaded Successfully ($targetUnitId).');
         },
         onAdFailedToLoad: (error) {
           _interstitialAd = null;
           _isAdLoading = false;
-          debugPrint('AdMob Interstitial Ad Failed To Load: $error');
+          debugPrint('AdMob Interstitial Ad Failed To Load ($targetUnitId): $error');
+
+          // If custom unit ID failed to fill, automatically retry with official test unit ID
+          if (!isFallback) {
+            debugPrint('Retrying AdMob Interstitial load with Test Ad Unit ID fallback...');
+            loadInterstitialAd(isFallback: true);
+          }
         },
       ),
     );
