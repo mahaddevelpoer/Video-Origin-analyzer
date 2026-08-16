@@ -125,17 +125,19 @@ class AnalysisResultScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Result Card
-              Container(
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeOut,
                 padding: const EdgeInsets.all(22),
                 decoration: BoxDecoration(
-                  color: AppColors.lightSurface,
+                  color: Theme.of(context).cardTheme.color ?? AppColors.lightSurface,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: AppColors.youtubeRed, width: 1.5),
-                  boxShadow: const [
+                  boxShadow: [
                     BoxShadow(
-                      color: Color(0x0F000000),
-                      blurRadius: 12,
-                      offset: Offset(0, 4),
+                      color: AppColors.youtubeRed.withAlpha(20),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
                     ),
                   ],
                 ),

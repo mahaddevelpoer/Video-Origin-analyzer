@@ -59,5 +59,54 @@ void main() {
       expect(result.platformName, 'TikTok');
       expect(result.confidence > 50, true);
     });
+
+    test('Identifies low score evidence as Inconclusive/Unknown', () {
+      final engine = ForensicScoringEngine();
+
+      final evidence = [
+        const EvidenceItem(
+          category: 'Container',
+          finding: 'Standard MP4 container format',
+          strength: EvidenceStrength.neutral,
+          scoreContribution: 5,
+          technicalExplanation: 'Generic container format without signature',
+        ),
+      ];
+
+      final result = engine.evaluate(
+        allEvidence: evidence,
+        possibleIntermediatePlatform: null,
+        intermediateReason: null,
+        technicalDetails: {'Container': 'MP4'},
+      );
+
+      expect(result.platformId, 'unknown');
+      expect(result.confidenceLevel.name, 'unknown');
+    });
+
+    test('Tracks intermediate compression channels like WhatsApp', () {
+      final engine = ForensicScoringEngine();
+
+      final evidence = [
+        const EvidenceItem(
+          category: 'Metadata',
+          finding: 'Instagram story encoder string match',
+          strength: EvidenceStrength.strong,
+          scoreContribution: 25,
+          technicalExplanation: 'Instagram encoder signature',
+        ),
+      ];
+
+      final result = engine.evaluate(
+        allEvidence: evidence,
+        possibleIntermediatePlatform: 'WhatsApp',
+        intermediateReason: 'Aggressive compression (bitrate < 1500kbps) detected.',
+        technicalDetails: {'Container': 'MP4', 'Bitrate': '800 kbps'},
+      );
+
+      expect(result.platformId, 'instagram');
+      expect(result.possibleIntermediatePlatform, 'WhatsApp');
+      expect(result.intermediateReason, contains('Aggressive compression'));
+    });
   });
 }

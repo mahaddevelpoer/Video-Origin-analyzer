@@ -55,12 +55,15 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
     bool success = false;
 
     if (_selectedPackage != null) {
-      // 1. Live Google Play / RevenueCat Store Purchase
+      // 1. Real RevenueCat SDK Purchase execution
       success = await subService.purchasePackage(_selectedPackage!);
+      if (!success) {
+        _statusMessage = 'Store Sandbox Notice: Billing requires an active Google Play Console app release.';
+      }
     } else {
-      // 2. Direct RevenueCat Sandbox / Local Verification Flow (When Play Store billing credentials are under review)
+      // 2. Fallback sandbox feedback when Play Console products are not linked yet
       await Future.delayed(const Duration(milliseconds: 700));
-      success = true;
+      _statusMessage = 'RevenueCat SDK Connected: Real-time checkout requires Google Play Console product links.';
     }
 
     if (mounted) {
@@ -68,8 +71,6 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
         _isLoading = false;
         if (success) {
           _statusMessage = 'Pro Subscription successfully activated! Unlimited analyses unlocked.';
-        } else {
-          _statusMessage = 'Purchase cancelled or could not be completed.';
         }
       });
     }
