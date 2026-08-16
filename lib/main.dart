@@ -11,6 +11,7 @@ import 'core/providers/app_providers.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/welcome_screen.dart';
 import 'features/home/presentation/home_screen.dart';
+import 'features/subscription/services/subscription_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,6 +21,14 @@ void main() async {
     await MobileAds.instance.initialize();
   } catch (e) {
     debugPrint('AdMob Init Notice: $e');
+  }
+
+  // Initialize RevenueCat SDK
+  try {
+    final subService = SubscriptionService();
+    await subService.initialize();
+  } catch (e) {
+    debugPrint('RevenueCat Init Notice: $e');
   }
 
   // Initialize Firebase with Platform Options

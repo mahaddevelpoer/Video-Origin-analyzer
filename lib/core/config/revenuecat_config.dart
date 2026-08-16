@@ -1,11 +1,11 @@
 /// RevenueCat Configuration
+/// Developer: Mahad and Mehdi Developers
 class RevenueCatConfig {
   // Entitlement Name
   static const String entitlementId = 'pro';
 
   // API Keys (Public Mobile SDK Keys)
-  // Replace these with your actual keys from RevenueCat Dashboard
-  static const String apiKeyAndroid = 'goog_sample_android_sdk_key';
+  static const String apiKeyAndroid = 'goog_mwzvUcdNpYHyyoeXmtubCBiRhYO';
   static const String apiKeyIOS = 'appl_sample_ios_sdk_key';
 
   // Offering IDs
