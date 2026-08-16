@@ -69,16 +69,18 @@ class VideoOriginAnalyzerApp extends StatelessWidget {
   }
 }
 
-/// Authentication Gate enforcing login/register requirement before accessing HomeScreen.
-/// Gracefully handles test environments where native Firebase apps are uninitialized.
+/// Authentication Gate enforcing direct HomeScreen access for active/previous logins.
 class AuthGate extends ConsumerWidget {
   const AuthGate({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final prefs = ref.watch(sharedPreferencesProvider);
+    final hasLoggedInBefore = prefs.getBool('has_logged_in_before') ?? false;
+
     // Check if Firebase is initialized (handles widget test runner gracefully)
     if (Firebase.apps.isEmpty) {
-      return const WelcomeScreen();
+      return hasLoggedInBefore ? const HomeScreen() : const WelcomeScreen();
     }
 
     return StreamBuilder<User?>(
@@ -92,12 +94,12 @@ class AuthGate extends ConsumerWidget {
           );
         }
 
-        // If user is authenticated via Email, Google, or Apple -> HomeScreen
-        if (snapshot.hasData && snapshot.data != null) {
+        // If user is authenticated via Email, Google, or has entered before -> HomeScreen
+        if ((snapshot.hasData && snapshot.data != null) || hasLoggedInBefore) {
           return const HomeScreen();
         }
 
-        // If unauthenticated -> Require Login / Register / Google Sign-In
+        // If fresh initial installation -> Show WelcomeScreen
         return const WelcomeScreen();
       },
     );

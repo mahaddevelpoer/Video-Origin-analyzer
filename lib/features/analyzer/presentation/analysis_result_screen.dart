@@ -152,13 +152,16 @@ class AnalysisResultScreen extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 12,
+                      runSpacing: 10,
                       children: [
                         Text(
                           result.platformName.toUpperCase(),
                           style: const TextStyle(
-                            fontSize: 26,
+                            fontSize: 24,
                             fontWeight: FontWeight.bold,
                             color: AppColors.textDark,
                           ),
@@ -185,15 +188,16 @@ class AnalysisResultScreen extends ConsumerWidget {
                       const SizedBox(height: 16),
                       const Divider(),
                       const SizedBox(height: 10),
-                      Row(
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 4,
                         children: [
                           const Icon(Icons.alt_route, color: AppColors.strengthWeak, size: 18),
-                          const SizedBox(width: 8),
                           const Text(
                             'Possible Intermediate Processing:',
                             style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                           ),
-                          const SizedBox(width: 6),
                           Text(
                             result.possibleIntermediatePlatform!,
                             style: const TextStyle(
@@ -205,10 +209,10 @@ class AnalysisResultScreen extends ConsumerWidget {
                         ],
                       ),
                       if (result.intermediateReason != null) ...[
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 6),
                         Text(
                           result.intermediateReason!,
-                          style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                          style: const TextStyle(fontSize: 12, color: AppColors.textMuted, height: 1.3),
                         ),
                       ],
                     ],

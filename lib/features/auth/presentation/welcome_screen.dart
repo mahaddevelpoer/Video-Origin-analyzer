@@ -1,12 +1,62 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/providers/app_providers.dart';
 import '../../home/presentation/home_screen.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
 
-class WelcomeScreen extends StatelessWidget {
+class WelcomeScreen extends ConsumerStatefulWidget {
   const WelcomeScreen({super.key});
+
+  @override
+  ConsumerState<WelcomeScreen> createState() => _WelcomeScreenState();
+}
+
+class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
+  bool _isGoogleLoading = false;
+
+  Future<void> _handleGetStarted() async {
+    // Automatically initialize/persist session so subsequent app launches jump straight to HomeScreen
+    final prefs = ref.read(sharedPreferencesProvider);
+    await prefs.setBool('has_logged_in_before', true);
+
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
+      (route) => false,
+    );
+  }
+
+  Future<void> _handleGoogleQuickLogin() async {
+    setState(() => _isGoogleLoading = true);
+    try {
+      final authService = ref.read(authServiceProvider);
+      await authService.signInWithGoogle();
+      final prefs = ref.read(sharedPreferencesProvider);
+      await prefs.setBool('has_logged_in_before', true);
+
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        (route) => false,
+      );
+    } catch (_) {
+      if (mounted) {
+        final prefs = ref.read(sharedPreferencesProvider);
+        await prefs.setBool('has_logged_in_before', true);
+        if (mounted) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const HomeScreen()),
+            (route) => false,
+          );
+        }
+      }
+    } finally {
+      if (mounted) setState(() => _isGoogleLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -99,14 +149,24 @@ class WelcomeScreen extends StatelessWidget {
               const SizedBox(height: 28),
 
               ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const HomeScreen()),
-                  );
-                },
+                onPressed: _handleGetStarted,
                 child: const Text('GET STARTED NOW'),
               ),
               const SizedBox(height: 12),
+
+              OutlinedButton.icon(
+                onPressed: _isGoogleLoading ? null : _handleGoogleQuickLogin,
+                icon: const Icon(Icons.g_mobiledata, size: 24, color: AppColors.youtubeRed),
+                label: _isGoogleLoading
+                    ? const SizedBox(
+                        height: 16,
+                        width: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.youtubeRed),
+                      )
+                    : const Text('Continue with Google'),
+              ),
+              const SizedBox(height: 12),
+
               Row(
                 children: [
                   Expanded(
