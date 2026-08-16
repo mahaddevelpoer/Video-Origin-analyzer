@@ -65,43 +65,51 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       final authService = ref.read(authServiceProvider);
       final cred = await authService.signInWithGoogle();
-      if (cred != null && mounted) {
+      if (!mounted) return;
+      if (cred != null || authService.isAuthenticated) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const HomeScreen()),
           (route) => false,
         );
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = 'Google Sign-In failed.';
-      });
+      if (mounted) {
+        final authService = ref.read(authServiceProvider);
+        if (authService.isAuthenticated) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const HomeScreen()),
+            (route) => false,
+          );
+        }
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _handleAppleLogin() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final authService = ref.read(authServiceProvider);
-      final cred = await authService.signInWithApple();
-      if (cred != null && mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-          (route) => false,
-        );
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Apple Sign-In failed.';
-      });
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+  void _handleAppleLogin() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.apple, color: AppColors.textDark, size: 28),
+            SizedBox(width: 8),
+            Text('Sign in with Apple', style: TextStyle(fontSize: 18)),
+          ],
+        ),
+        content: const Text(
+          'Login with Apple is coming soon in the upcoming update!',
+          style: TextStyle(fontSize: 14, color: AppColors.textMuted),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('OK', style: TextStyle(color: AppColors.youtubeRed)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

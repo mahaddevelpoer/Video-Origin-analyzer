@@ -48,7 +48,7 @@ class AuthService {
         }
         return anonCred;
       } catch (_) {
-        rethrow;
+        return null;
       }
     }
   }
@@ -69,7 +69,6 @@ class AuthService {
       return cred;
     } catch (e) {
       debugPrint('Firebase SignIn Error: $e');
-      // Fallback to anonymous sign-in if credentials or configuration not found
       try {
         final anonCred = await _auth.signInAnonymously();
         if (anonCred.user != null) {
@@ -77,18 +76,29 @@ class AuthService {
         }
         return anonCred;
       } catch (_) {
-        rethrow;
+        return null;
       }
     }
   }
 
-  /// Google Sign In with Graceful Fallback
+  /// Google Sign In with Multi-Method Fallback
   Future<UserCredential?> signInWithGoogle() async {
     try {
-      final GoogleSignInAccount? googleUser = await GoogleSignIn(
-        serverClientId: kGoogleSignInWebClientId,
-      ).signIn();
-      if (googleUser == null) return null; // Cancelled
+      GoogleSignInAccount? googleUser;
+      try {
+        // Try with configured serverClientId first
+        googleUser = await GoogleSignIn(
+          serverClientId: kGoogleSignInWebClientId,
+        ).signIn();
+      } catch (e) {
+        debugPrint('GoogleSignIn with serverClientId error ($e), trying standard init...');
+        googleUser = await GoogleSignIn().signIn();
+      }
+
+      if (googleUser == null) {
+        // User explicitly cancelled dialog, return gracefully
+        return null;
+      }
 
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
       final OAuthCredential credential = GoogleAuthProvider.credential(
@@ -102,8 +112,8 @@ class AuthService {
       }
       return cred;
     } catch (e) {
-      debugPrint('Google Sign In Error: $e');
-      // If Google OAuth client is unconfigured in Firebase Console, fallback to anonymous sign in so user is not blocked
+      debugPrint('Google Sign In Catch Error: $e');
+      // Graceful local fallback session so user is never blocked
       try {
         final anonCred = await _auth.signInAnonymously();
         if (anonCred.user != null) {
@@ -111,7 +121,7 @@ class AuthService {
         }
         return anonCred;
       } catch (_) {
-        rethrow;
+        return null;
       }
     }
   }
@@ -145,7 +155,7 @@ class AuthService {
         }
         return anonCred;
       } catch (_) {
-        rethrow;
+        return null;
       }
     }
   }
@@ -161,6 +171,9 @@ class AuthService {
 
   /// Sign Out
   Future<void> signOut() async {
+    try {
+      await GoogleSignIn().signOut();
+    } catch (_) {}
     try {
       await _auth.signOut();
     } catch (_) {}

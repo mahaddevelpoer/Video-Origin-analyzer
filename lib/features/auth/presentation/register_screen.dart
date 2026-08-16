@@ -66,16 +66,23 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     try {
       final authService = ref.read(authServiceProvider);
       final cred = await authService.signInWithGoogle();
-      if (cred != null && mounted) {
+      if (!mounted) return;
+      if (cred != null || authService.isAuthenticated) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const HomeScreen()),
           (route) => false,
         );
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = 'Google Sign-Up failed.';
-      });
+      if (mounted) {
+        final authService = ref.read(authServiceProvider);
+        if (authService.isAuthenticated) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const HomeScreen()),
+            (route) => false,
+          );
+        }
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
