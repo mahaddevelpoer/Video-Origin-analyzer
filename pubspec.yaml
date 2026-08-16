@@ -50,6 +50,7 @@ dependencies:
   # Local Media & Storage
   file_picker: ^9.0.0
   video_player: ^2.9.2
+  video_thumbnail: ^0.5.3
   shared_preferences: ^2.5.2
   path_provider: ^2.1.5
 

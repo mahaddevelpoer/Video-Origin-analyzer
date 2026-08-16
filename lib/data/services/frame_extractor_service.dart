@@ -1,6 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
+import 'package:path_provider/path_provider.dart';
+import 'package:video_thumbnail/video_thumbnail.dart';
 import '../models/input_video_payload.dart';
 
 enum FramePosition { beginning, middle, ending }
@@ -17,40 +20,89 @@ class FrameExtractionResult {
   });
 }
 
-/// Service for extracting representative video frame screenshots for visual search.
-/// Generates valid, high-resolution JPEG image screenshots under SerpApi 500KB limits.
+/// Service for extracting authentic video frame screenshots for visual search.
+/// Extracts actual frames using video_thumbnail on devices/files.
 class FrameExtractorService {
-  /// Extracts representative frame screenshots (Center/Middle, Beginning, Ending).
+  /// Extracts authentic representative frame screenshots (Center/Middle, Beginning, Ending).
   Future<List<FrameExtractionResult>> extractRepresentativeFrames(
     InputVideoPayload payload,
   ) async {
     final results = <FrameExtractionResult>[];
 
+    // Ensure we have a valid file path for video extraction
+    String? videoPath = payload.path;
+    File? tempFile;
+
     try {
-      // 1. Center / Middle Frame (Primary candidate)
-      final middleFrame = _generateRichFrameJpeg(payload, FramePosition.middle);
-      results.add(middleFrame);
+      if ((videoPath == null || videoPath.isEmpty) && payload.bytes != null && payload.bytes!.isNotEmpty && !kIsWeb) {
+        final tempDir = await getTemporaryDirectory();
+        tempFile = File('${tempDir.path}/temp_extract_${DateTime.now().millisecondsSinceEpoch}.mp4');
+        await tempFile.writeAsBytes(payload.bytes!);
+        videoPath = tempFile.path;
+      }
 
-      // 2. Beginning Frame (Secondary candidate)
-      final earlyFrame = _generateRichFrameJpeg(payload, FramePosition.beginning);
-      results.add(earlyFrame);
+      if (videoPath != null && videoPath.isNotEmpty && !kIsWeb) {
+        // 1. Center / Middle Frame (timeMs: 2500 - 50% through video)
+        final middle = await _extractRealFrame(videoPath, FramePosition.middle, timeMs: 3000);
+        if (middle != null) results.add(middle);
 
-      // 3. Ending Frame (Tertiary candidate)
-      final lateFrame = _generateRichFrameJpeg(payload, FramePosition.ending);
-      results.add(lateFrame);
+        // 2. Beginning Frame (timeMs: 1000)
+        final beginning = await _extractRealFrame(videoPath, FramePosition.beginning, timeMs: 1000);
+        if (beginning != null) results.add(beginning);
+
+        // 3. Ending Frame (timeMs: 6000)
+        final ending = await _extractRealFrame(videoPath, FramePosition.ending, timeMs: 6000);
+        if (ending != null) results.add(ending);
+      }
     } catch (e) {
-      debugPrint('Frame extraction notice: $e');
+      debugPrint('Real frame extraction error: $e');
+    } finally {
+      if (tempFile != null && await tempFile.exists()) {
+        try {
+          await tempFile.delete();
+        } catch (_) {}
+      }
     }
 
     if (results.isEmpty) {
-      final fallback = _generateRichFrameJpeg(payload, FramePosition.middle);
+      // Fallback only if native video decoding is not available on platform
+      final fallback = _generateMinimalFrame(payload, FramePosition.middle);
       results.add(fallback);
     }
 
     return results;
   }
 
-  FrameExtractionResult _generateRichFrameJpeg(
+  Future<FrameExtractionResult?> _extractRealFrame(
+    String videoPath,
+    FramePosition position, {
+    int timeMs = 0,
+  }) async {
+    try {
+      final uint8list = await VideoThumbnail.thumbnailData(
+        video: videoPath,
+        imageFormat: ImageFormat.JPEG,
+        maxWidth: 480,
+        quality: 80,
+        timeMs: timeMs,
+      );
+
+      if (uint8list != null && uint8list.isNotEmpty) {
+        final b64 = base64Encode(uint8list);
+        debugPrint('Successfully extracted REAL frame screenshot ($position, ${uint8list.length} bytes)');
+        return FrameExtractionResult(
+          position: position,
+          base64Jpeg: b64,
+          byteSize: uint8list.length,
+        );
+      }
+    } catch (e) {
+      debugPrint('Failed to extract real frame at $timeMs ms: $e');
+    }
+    return null;
+  }
+
+  FrameExtractionResult _generateMinimalFrame(
     InputVideoPayload payload,
     FramePosition position,
   ) {
@@ -58,31 +110,13 @@ class FrameExtractorService {
     const height = 320;
     final image = img.Image(width: width, height: height);
 
-    final isTikTok = payload.name.toLowerCase().contains('tiktok') || payload.name.toLowerCase().contains('tt');
-    final isIG = payload.name.toLowerCase().contains('ig') || payload.name.toLowerCase().contains('reel');
-
-    // Fill image with colorful gradient pixels representing video content
     for (var y = 0; y < height; y++) {
       for (var x = 0; x < width; x++) {
-        final r = (x * 255 / width).toInt();
-        final g = (y * 255 / height).toInt();
-        final b = isTikTok ? 200 : (isIG ? 150 : 50);
-        image.setPixelRgb(x, y, r, g, b);
+        image.setPixelRgb(x, y, 40, 40, 40);
       }
     }
 
-    // Draw position indicator marker
-    final labelColor = img.ColorRgb8(255, 255, 255);
-    final markerX = (position == FramePosition.beginning)
-        ? 40
-        : (position == FramePosition.middle)
-            ? 160
-            : 280;
-
-    img.fillRect(image, x1: markerX - 20, y1: 140, x2: markerX + 20, y2: 180, color: labelColor);
-
-    // Encode to valid JPEG bytes
-    final jpegBytes = img.encodeJpg(image, quality: 85);
+    final jpegBytes = img.encodeJpg(image, quality: 80);
     final b64 = base64Encode(jpegBytes);
 
     return FrameExtractionResult(
