@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.mahadandmehdi.video_origin_analyzer"
-    compileSdk = 35
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
