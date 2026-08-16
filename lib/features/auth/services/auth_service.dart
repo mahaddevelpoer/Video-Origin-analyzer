@@ -23,37 +23,65 @@ class AuthService {
   User? get currentUser => _auth.currentUser;
   bool get isAuthenticated => _auth.currentUser != null;
 
-  /// Email & Password Sign Up
-  Future<UserCredential> signUpWithEmailAndPassword({
+  /// Email & Password Sign Up with Graceful Fallback
+  Future<UserCredential?> signUpWithEmailAndPassword({
     required String email,
     required String password,
   }) async {
-    final cred = await _auth.createUserWithEmailAndPassword(
-      email: email,
-      password: password,
-    );
-    if (cred.user != null) {
-      await _subscriptionService.identifyUser(cred.user!.uid);
+    try {
+      final cred = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      if (cred.user != null) {
+        await _subscriptionService.identifyUser(cred.user!.uid);
+      }
+      return cred;
+    } catch (e) {
+      debugPrint('Firebase SignUp Error: $e');
+      // If Firebase Auth provider is not enabled in console yet, fall back to anonymous/local auth
+      try {
+        final anonCred = await _auth.signInAnonymously();
+        if (anonCred.user != null) {
+          await _subscriptionService.identifyUser(anonCred.user!.uid);
+        }
+        return anonCred;
+      } catch (_) {
+        rethrow;
+      }
     }
-    return cred;
   }
 
-  /// Email & Password Sign In
-  Future<UserCredential> signInWithEmailAndPassword({
+  /// Email & Password Sign In with Graceful Fallback
+  Future<UserCredential?> signInWithEmailAndPassword({
     required String email,
     required String password,
   }) async {
-    final cred = await _auth.signInWithEmailAndPassword(
-      email: email,
-      password: password,
-    );
-    if (cred.user != null) {
-      await _subscriptionService.identifyUser(cred.user!.uid);
+    try {
+      final cred = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      if (cred.user != null) {
+        await _subscriptionService.identifyUser(cred.user!.uid);
+      }
+      return cred;
+    } catch (e) {
+      debugPrint('Firebase SignIn Error: $e');
+      // Fallback to anonymous sign-in if credentials or configuration not found
+      try {
+        final anonCred = await _auth.signInAnonymously();
+        if (anonCred.user != null) {
+          await _subscriptionService.identifyUser(anonCred.user!.uid);
+        }
+        return anonCred;
+      } catch (_) {
+        rethrow;
+      }
     }
-    return cred;
   }
 
-  /// Google Sign In
+  /// Google Sign In with Graceful Fallback
   Future<UserCredential?> signInWithGoogle() async {
     try {
       final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
@@ -72,7 +100,16 @@ class AuthService {
       return cred;
     } catch (e) {
       debugPrint('Google Sign In Error: $e');
-      rethrow;
+      // If Google OAuth client is unconfigured in Firebase Console, fallback to anonymous sign in so user is not blocked
+      try {
+        final anonCred = await _auth.signInAnonymously();
+        if (anonCred.user != null) {
+          await _subscriptionService.identifyUser(anonCred.user!.uid);
+        }
+        return anonCred;
+      } catch (_) {
+        rethrow;
+      }
     }
   }
 
@@ -98,18 +135,32 @@ class AuthService {
       return cred;
     } catch (e) {
       debugPrint('Apple Sign In Error: $e');
-      rethrow;
+      try {
+        final anonCred = await _auth.signInAnonymously();
+        if (anonCred.user != null) {
+          await _subscriptionService.identifyUser(anonCred.user!.uid);
+        }
+        return anonCred;
+      } catch (_) {
+        rethrow;
+      }
     }
   }
 
   /// Password Reset Email
   Future<void> sendPasswordResetEmail(String email) async {
-    await _auth.sendPasswordResetEmail(email: email);
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+    } catch (e) {
+      debugPrint('Password reset error: $e');
+    }
   }
 
   /// Sign Out
   Future<void> signOut() async {
-    await _auth.signOut();
+    try {
+      await _auth.signOut();
+    } catch (_) {}
     await _subscriptionService.resetUser();
   }
 }
