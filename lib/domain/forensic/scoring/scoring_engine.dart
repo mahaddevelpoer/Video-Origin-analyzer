@@ -9,27 +9,46 @@ class ForensicScoringEngine {
     required String? intermediateReason,
     required Map<String, dynamic> technicalDetails,
   }) {
-    // Tally score per platform
+    // Original candidate platforms strictly restricted to TikTok, Instagram, YouTube
     final Map<String, int> scores = {};
-    for (final sig in SignatureDatabase.allSignatures) {
-      if (sig.platformId != 'whatsapp') {
-        scores[sig.platformId] = 0;
-      }
+    for (final sig in SignatureDatabase.primarySignatures) {
+      scores[sig.platformId] = 0;
     }
 
+    // Group evidence to prevent correlated signal inflation
+    final Map<String, Map<String, int>> categoryScores = {
+      'tiktok': {},
+      'instagram': {},
+      'youtube': {},
+    };
+
     for (final item in allEvidence) {
-      for (final sig in SignatureDatabase.allSignatures) {
-        if (sig.platformId == 'whatsapp') continue;
+      for (final sig in SignatureDatabase.primarySignatures) {
         final nameLower = sig.platformName.toLowerCase();
         final findingLower = item.finding.toLowerCase();
 
         if (findingLower.contains(nameLower)) {
-          scores[sig.platformId] = (scores[sig.platformId] ?? 0) + item.scoreContribution;
+          final cat = item.category;
+          final currentCatScore = categoryScores[sig.platformId]?[cat] ?? 0;
+          // Cap score contribution per category (max 25 points per category group)
+          if (currentCatScore < 25) {
+            final added = item.scoreContribution.clamp(0, 25 - currentCatScore);
+            categoryScores[sig.platformId]![cat] = currentCatScore + added;
+          }
         }
       }
     }
 
-    // Determine top platform
+    // Sum category-capped scores per candidate platform
+    categoryScores.forEach((platformId, catMap) {
+      int total = 0;
+      for (final v in catMap.values) {
+        total += v;
+      }
+      scores[platformId] = total;
+    });
+
+    // Determine top original platform candidate
     String bestPlatformId = 'unknown';
     int maxScore = 0;
     scores.forEach((id, score) {
@@ -49,7 +68,7 @@ class ForensicScoringEngine {
       }
     });
 
-    // If maxScore is below minimal evidence threshold, return UNKNOWN / INCONCLUSIVE
+    // If maxScore is below minimal evidence threshold (< 20), return UNKNOWN / INCONCLUSIVE
     if (maxScore < 20) {
       return PlatformResult(
         platformId: 'unknown',
@@ -64,12 +83,12 @@ class ForensicScoringEngine {
       );
     }
 
-    final bestSig = SignatureDatabase.allSignatures.firstWhere(
+    final bestSig = SignatureDatabase.primarySignatures.firstWhere(
       (s) => s.platformId == bestPlatformId,
       orElse: () => SignatureDatabase.tiktok,
     );
 
-    // Calculate raw confidence (capped at 92% to respect honesty rules - no 100% false certainty)
+    // Calculate raw confidence (capped at 92% to respect honesty rules)
     int confidence = (maxScore + 30).clamp(35, 92);
 
     final List<EvidenceItem> primaryEvidence = [];

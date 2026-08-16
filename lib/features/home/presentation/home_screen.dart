@@ -24,8 +24,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final usedCount = dailyUsageService.getUsageCount();
     final canAnalyze = dailyUsageService.canAnalyze(isPro);
 
+    final theme = Theme.of(context);
+    final cardColor = theme.cardTheme.color ?? theme.colorScheme.surface;
+    final textColor = theme.textTheme.bodyLarge?.color ?? Colors.white;
+
     return Scaffold(
-      backgroundColor: AppColors.lightBackground,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: Row(
           children: [
@@ -38,15 +42,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: const Icon(Icons.play_arrow, color: Colors.white, size: 18),
             ),
             const SizedBox(width: 10),
-            const Text(
+            Text(
               AppConfig.appName,
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppColors.textDark),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: textColor),
             ),
           ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.history, color: AppColors.textDark),
+            icon: Icon(Icons.history, color: textColor),
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const HistoryScreen()),
@@ -54,7 +58,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.settings_outlined, color: AppColors.textDark),
+            icon: Icon(Icons.settings_outlined, color: textColor),
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const SettingsScreen()),
@@ -73,9 +77,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
-                  color: AppColors.lightSurface,
+                  color: cardColor,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.lightBorder),
+                  border: Border.all(color: theme.dividerColor),
                   boxShadow: const [
                     BoxShadow(
                       color: Color(0x08000000),
@@ -93,14 +97,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       style: TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(width: 6),
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         AppConfig.developerName,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.textDark,
+                          color: textColor,
                         ),
                       ),
                     ),
@@ -113,10 +117,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: AppColors.lightSurface,
+                  color: cardColor,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: isPro ? AppColors.youtubeRed : AppColors.lightBorder,
+                    color: isPro ? AppColors.youtubeRed : theme.dividerColor,
                     width: isPro ? 1.5 : 1,
                   ),
                   boxShadow: const [

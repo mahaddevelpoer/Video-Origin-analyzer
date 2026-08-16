@@ -1,11 +1,18 @@
+enum DateConfidence { high, medium, low, unknown }
+
 class OnlineMatchItem {
   final int position;
   final String title;
   final String link;
   final String domain;
-  final String classifiedPlatform; // 'instagram' | 'tiktok' | 'youtube' | 'facebook' | 'other'
+  final String classifiedPlatform; // 'instagram' | 'tiktok' | 'youtube' | 'other'
   final String? thumbnail;
   final String? source;
+  final String matchType; // 'exact_match' | 'visual_match' | 'google_search' | 'about_this_image'
+  final String? date; // ONLINE DATE EVIDENCE string (e.g., 'Aug 10, 2026')
+  final DateConfidence dateConfidence;
+  final String? snippet;
+  final String? ocrQuery;
 
   const OnlineMatchItem({
     required this.position,
@@ -15,6 +22,11 @@ class OnlineMatchItem {
     required this.classifiedPlatform,
     this.thumbnail,
     this.source,
+    this.matchType = 'visual_match',
+    this.date,
+    this.dateConfidence = DateConfidence.unknown,
+    this.snippet,
+    this.ocrQuery,
   });
 
   Map<String, dynamic> toJson() => {
@@ -25,17 +37,44 @@ class OnlineMatchItem {
         'classified_platform': classifiedPlatform,
         'thumbnail': thumbnail,
         'source': source,
+        'match_type': matchType,
+        'date': date,
+        'date_confidence': dateConfidence.name,
+        'snippet': snippet,
+        'ocr_query': ocrQuery,
       };
 
   factory OnlineMatchItem.fromJson(Map<String, dynamic> json) {
+    // Classify domain directly from actual URL domain name
+    final linkUrl = (json['link'] as String? ?? '').toLowerCase();
+    String platform = 'other';
+    if (linkUrl.contains('instagram.com')) {
+      platform = 'instagram';
+    } else if (linkUrl.contains('tiktok.com')) {
+      platform = 'tiktok';
+    } else if (linkUrl.contains('youtube.com') || linkUrl.contains('youtu.be')) {
+      platform = 'youtube';
+    }
+
+    final rawConfidence = json['date_confidence'] as String? ?? 'unknown';
+    final conf = DateConfidence.values.firstWhere(
+      (e) => e.name == rawConfidence,
+      orElse: () => DateConfidence.unknown,
+    );
+
     return OnlineMatchItem(
       position: json['position'] as int? ?? 0,
       title: json['title'] as String? ?? 'Related Visual Match',
       link: json['link'] as String? ?? '',
       domain: json['domain'] as String? ?? 'unknown',
-      classifiedPlatform: json['classified_platform'] as String? ?? 'other',
+      classifiedPlatform: platform != 'other' ? platform : (json['classified_platform'] as String? ?? 'other'),
       thumbnail: json['thumbnail'] as String?,
       source: json['source'] as String?,
+      matchType: json['match_type'] as String? ?? 'visual_match',
+      date: json['date'] as String?,
+      dateConfidence: conf,
+      snippet: json['snippet'] as String?,
+      ocrQuery: json['ocr_query'] as String?,
     );
   }
 }
@@ -63,8 +102,8 @@ class OnlineSearchResult {
     return OnlineSearchResult(
       status: 'failed',
       totalMatches: 0,
-      summary: {'instagram': 0, 'tiktok': 0, 'youtube': 0, 'facebook': 0, 'other': 0},
-      matches: [],
+      summary: const {'instagram': 0, 'tiktok': 0, 'youtube': 0, 'other': 0},
+      matches: const [],
       errorMessage: message,
       errorCode: code,
     );
@@ -85,7 +124,6 @@ class OnlineSearchResult {
       'instagram': rawSummary['instagram'] as int? ?? 0,
       'tiktok': rawSummary['tiktok'] as int? ?? 0,
       'youtube': rawSummary['youtube'] as int? ?? 0,
-      'facebook': rawSummary['facebook'] as int? ?? 0,
       'other': rawSummary['other'] as int? ?? 0,
     };
 

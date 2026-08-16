@@ -162,10 +162,10 @@ class AnalysisResultScreen extends ConsumerWidget {
                       children: [
                         Text(
                           result.platformName.toUpperCase(),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.textDark,
+                            color: Theme.of(context).textTheme.bodyLarge?.color ?? AppColors.textDark,
                           ),
                         ),
                         Container(

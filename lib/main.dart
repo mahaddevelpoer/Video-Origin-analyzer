@@ -16,32 +16,30 @@ import 'features/subscription/services/subscription_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Mobile Ads SDK
-  try {
-    await MobileAds.instance.initialize();
-  } catch (e) {
+  // Run independent SDK initializations concurrently to optimize startup speed
+  final prefsFuture = SharedPreferences.getInstance();
+  final adsFuture = MobileAds.instance.initialize().catchError((e) {
     debugPrint('AdMob Init Notice: $e');
-  }
-
-  // Initialize RevenueCat SDK
-  try {
-    final subService = SubscriptionService();
-    await subService.initialize();
-  } catch (e) {
+    return InitializationStatus({});
+  });
+  final subFuture = SubscriptionService().initialize().catchError((e) {
     debugPrint('RevenueCat Init Notice: $e');
-  }
-
-  // Initialize Firebase with Platform Options
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-  } catch (e) {
+  });
+  final firebaseFuture = Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  ).catchError((e) {
     debugPrint('Firebase Core Init Notice: $e');
-  }
+    return Firebase.app();
+  });
 
-  // Initialize Local Storage
-  final prefs = await SharedPreferences.getInstance();
+  final results = await Future.wait([
+    prefsFuture,
+    adsFuture,
+    subFuture,
+    firebaseFuture,
+  ]);
+
+  final prefs = results[0] as SharedPreferences;
 
   runApp(
     ProviderScope(

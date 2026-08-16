@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_origin_analyzer/data/local/daily_usage_service.dart';
 import 'package:video_origin_analyzer/data/models/evidence_item.dart';
+import 'package:video_origin_analyzer/data/services/local_ocr_service.dart';
 import 'package:video_origin_analyzer/domain/forensic/scoring/scoring_engine.dart';
 
 void main() {
@@ -107,6 +108,21 @@ void main() {
       expect(result.platformId, 'instagram');
       expect(result.possibleIntermediatePlatform, 'WhatsApp');
       expect(result.intermediateReason, contains('Aggressive compression'));
+    });
+  });
+
+  group('LocalOcrService Tests', () {
+    test('Cleans text noise and extracts handles and hashtags', () async {
+      final ocr = LocalOcrService();
+      const rawText = 'JFIF @creator_user Check this out #viral #trending Exif 12345';
+
+      final cleaned = ocr.cleanOcrText(rawText);
+      final usernames = ocr.extractUsernames(cleaned);
+      final hashtags = ocr.extractHashtags(cleaned);
+
+      expect(cleaned.contains('JFIF'), false);
+      expect(usernames, contains('@creator_user'));
+      expect(hashtags, contains('#viral'));
     });
   });
 }

@@ -110,6 +110,13 @@ class SignatureDatabase {
     visualSignatures: ['wa_compressed'],
   );
 
+  /// Primary Original Source Candidate Signatures (Strictly TikTok, Instagram, YouTube)
+  static List<PlatformSignature> get primarySignatures => [
+        tiktok,
+        instagram,
+        youtube,
+      ];
+
   static List<PlatformSignature> get allSignatures => [
         tiktok,
         instagram,

@@ -19,7 +19,10 @@ class OnlineVisualSearchService {
 
   /// Perform smart visual search over extracted representative video frames.
   /// Searches best frame (center) first; checks frequency across TikTok, Instagram, YouTube, Facebook.
-  Future<OnlineSearchResult> performVisualSearch(InputVideoPayload payload) async {
+  Future<OnlineSearchResult> performVisualSearch(
+    InputVideoPayload payload, {
+    String? ocrQuery,
+  }) async {
     try {
       final frames = await _frameExtractor.extractRepresentativeFrames(payload);
       if (frames.isEmpty) {
@@ -29,7 +32,6 @@ class OnlineVisualSearchService {
         );
       }
 
-      // Smart 3-Frame Strategy: Center frame first, then Early, then Late
       OnlineSearchResult lastResult = OnlineSearchResult.failure(
         message: 'Visual search initialization pending.',
       );
@@ -39,23 +41,25 @@ class OnlineVisualSearchService {
         'instagram': 0,
         'tiktok': 0,
         'youtube': 0,
-        'facebook': 0,
         'other': 0,
       };
 
       for (final frame in frames) {
         debugPrint('Querying Supabase Edge Function visual-search for ${frame.position.name} frame...');
 
-        final result = await _sendFrameToEdgeFunction(frame.base64Jpeg);
+        final result = await _sendFrameToEdgeFunction(frame.base64Jpeg, ocrQuery: ocrQuery);
         lastResult = result;
 
         if (result.isSuccess && result.matches.isNotEmpty) {
           accumulatedMatches.addAll(result.matches);
           result.summary.forEach((key, count) {
-            platformFrequency[key] = (platformFrequency[key] ?? 0) + count;
+            if (platformFrequency.containsKey(key)) {
+              platformFrequency[key] = (platformFrequency[key] ?? 0) + count;
+            } else {
+              platformFrequency['other'] = (platformFrequency['other'] ?? 0) + count;
+            }
           });
 
-          // Check if any single platform is dominant (> 2 matches across images)
           final hasDominant = platformFrequency.entries
               .where((e) => e.key != 'other')
               .any((e) => e.value >= 2);
@@ -66,7 +70,6 @@ class OnlineVisualSearchService {
           }
         }
 
-        // Break early if 404 or unconfigured
         if (result.errorCode == 'HTTP_404' ||
             result.errorCode == 'MISSING_SERPAPI_KEY' ||
             result.errorCode == 'SERPAPI_UPLOAD_FAILED') {
@@ -84,17 +87,17 @@ class OnlineVisualSearchService {
       }
 
       if (!lastResult.isSuccess && (lastResult.errorCode == 'HTTP_404' || lastResult.errorCode == 'CONNECTION_FAILED')) {
-        return _getFallbackDemoSearchResult(payload);
+        return _getFallbackDemoSearchResult(payload, ocrQuery: ocrQuery);
       }
 
       return lastResult;
     } catch (e) {
       debugPrint('OnlineVisualSearchService Exception: $e');
-      return _getFallbackDemoSearchResult(payload);
+      return _getFallbackDemoSearchResult(payload, ocrQuery: ocrQuery);
     }
   }
 
-  Future<OnlineSearchResult> _sendFrameToEdgeFunction(String base64Jpeg) async {
+  Future<OnlineSearchResult> _sendFrameToEdgeFunction(String base64Jpeg, {String? ocrQuery}) async {
     try {
       final response = await http
           .post(
@@ -106,6 +109,7 @@ class OnlineVisualSearchService {
             body: jsonEncode({
               'image_base64': base64Jpeg,
               'max_results': 10,
+              if (ocrQuery != null && ocrQuery.isNotEmpty) 'ocr_query': ocrQuery,
             }),
           )
           .timeout(const Duration(seconds: 12));
@@ -141,15 +145,13 @@ class OnlineVisualSearchService {
     }
   }
 
-  OnlineSearchResult _getFallbackDemoSearchResult(InputVideoPayload payload) {
+  OnlineSearchResult _getFallbackDemoSearchResult(InputVideoPayload payload, {String? ocrQuery}) {
     final lowerName = payload.name.toLowerCase();
     String detectedPlatform = 'tiktok';
     if (lowerName.contains('ig') || lowerName.contains('reel') || lowerName.contains('instagram')) {
       detectedPlatform = 'instagram';
     } else if (lowerName.contains('yt') || lowerName.contains('youtube') || lowerName.contains('shorts')) {
       detectedPlatform = 'youtube';
-    } else if (lowerName.contains('fb') || lowerName.contains('facebook') || lowerName.contains('watch')) {
-      detectedPlatform = 'facebook';
     }
 
     final matches = <OnlineMatchItem>[];
@@ -162,6 +164,10 @@ class OnlineVisualSearchService {
           domain: 'tiktok.com',
           classifiedPlatform: 'tiktok',
           source: 'TikTok',
+          matchType: 'exact_match',
+          date: 'August 10, 2026',
+          dateConfidence: DateConfidence.high,
+          snippet: 'Original upload containing high resolution video post',
         ),
         const OnlineMatchItem(
           position: 2,
@@ -170,6 +176,10 @@ class OnlineVisualSearchService {
           domain: 'instagram.com',
           classifiedPlatform: 'instagram',
           source: 'Instagram',
+          matchType: 'visual_match',
+          date: 'August 13, 2026',
+          dateConfidence: DateConfidence.medium,
+          snippet: 'Reposted video clip with Instagram watermark sticker',
         ),
       ]);
     } else if (detectedPlatform == 'instagram') {
@@ -181,6 +191,10 @@ class OnlineVisualSearchService {
           domain: 'instagram.com',
           classifiedPlatform: 'instagram',
           source: 'Instagram',
+          matchType: 'exact_match',
+          date: 'August 08, 2026',
+          dateConfidence: DateConfidence.high,
+          snippet: 'Original instagram reel uploaded by creator',
         ),
         const OnlineMatchItem(
           position: 2,
@@ -189,25 +203,10 @@ class OnlineVisualSearchService {
           domain: 'youtube.com',
           classifiedPlatform: 'youtube',
           source: 'YouTube',
-        ),
-      ]);
-    } else if (detectedPlatform == 'facebook') {
-      matches.addAll([
-        const OnlineMatchItem(
-          position: 1,
-          title: 'Original Video Post on Facebook Watch',
-          link: 'https://www.facebook.com/watch/?v=10293019284',
-          domain: 'facebook.com',
-          classifiedPlatform: 'facebook',
-          source: 'Facebook',
-        ),
-        const OnlineMatchItem(
-          position: 2,
-          title: 'Shared Video Clip on Instagram',
-          link: 'https://www.instagram.com/reels/Fb91023mNB/',
-          domain: 'instagram.com',
-          classifiedPlatform: 'instagram',
-          source: 'Instagram',
+          matchType: 'visual_match',
+          date: 'August 14, 2026',
+          dateConfidence: DateConfidence.medium,
+          snippet: 'Shorts clip posted matching original visual scene',
         ),
       ]);
     } else {
@@ -219,6 +218,10 @@ class OnlineVisualSearchService {
           domain: 'youtube.com',
           classifiedPlatform: 'youtube',
           source: 'YouTube',
+          matchType: 'exact_match',
+          date: 'August 05, 2026',
+          dateConfidence: DateConfidence.high,
+          snippet: 'Original high definition video uploaded on YouTube channel',
         ),
         const OnlineMatchItem(
           position: 2,
@@ -227,6 +230,10 @@ class OnlineVisualSearchService {
           domain: 'tiktok.com',
           classifiedPlatform: 'tiktok',
           source: 'TikTok',
+          matchType: 'visual_match',
+          date: 'August 11, 2026',
+          dateConfidence: DateConfidence.medium,
+          snippet: 'Trending video clip shared on TikTok',
         ),
       ]);
     }
@@ -235,7 +242,6 @@ class OnlineVisualSearchService {
       'instagram': matches.where((m) => m.classifiedPlatform == 'instagram').length,
       'tiktok': matches.where((m) => m.classifiedPlatform == 'tiktok').length,
       'youtube': matches.where((m) => m.classifiedPlatform == 'youtube').length,
-      'facebook': matches.where((m) => m.classifiedPlatform == 'facebook').length,
       'other': 0,
     };
 
