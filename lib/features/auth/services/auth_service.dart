@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import '../../../core/config/firebase_options.dart';
 import '../../subscription/services/subscription_service.dart';
 
 /// Modular Authentication Service handling Firebase Authentication & RevenueCat User ID Sync.
@@ -84,7 +85,9 @@ class AuthService {
   /// Google Sign In with Graceful Fallback
   Future<UserCredential?> signInWithGoogle() async {
     try {
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+      final GoogleSignInAccount? googleUser = await GoogleSignIn(
+        serverClientId: kGoogleSignInWebClientId,
+      ).signIn();
       if (googleUser == null) return null; // Cancelled
 
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;

@@ -1,6 +1,7 @@
 {
   "project_info": {
     "project_number": "612351187132",
+    "firebase_url": "https://alteredtools-default-rtdb.firebaseio.com",
     "project_id": "alteredtools",
     "storage_bucket": "alteredtools.firebasestorage.app"
   },
@@ -12,7 +13,20 @@
           "package_name": "com.mahadandmehdi.video_origin_analyzer"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "612351187132-q3fjlnn2n7n8diskgr3orcqmedl7fnh7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mahadandmehdi.video_origin_analyzer",
+            "certificate_hash": "0f97c7261cb476a74722b96032066c8b390bae88"
+          }
+        },
+        {
+          "client_id": "612351187132-r3qrnh8660gcuuoik3p0ro14b7adi8k2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDPp13ygXzwg00cArPVOZvqZ1Y-m0AFwsA"
@@ -20,7 +34,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "612351187132-r3qrnh8660gcuuoik3p0ro14b7adi8k2.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

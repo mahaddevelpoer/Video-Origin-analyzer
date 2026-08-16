@@ -33,6 +33,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '612351187132',
     projectId: 'alteredtools',
     storageBucket: 'alteredtools.firebasestorage.app',
+    // Web client ID from google-services.json (client_type: 3) for Google Sign-In
+    androidClientId: '612351187132-q3fjlnn2n7n8diskgr3orcqmedl7fnh7.apps.googleusercontent.com',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
@@ -44,3 +46,7 @@ class DefaultFirebaseOptions {
     iosBundleId: 'com.mahadandmehdi.video_origin_analyzer',
   );
 }
+
+/// Google Sign-In Web Client ID (used by GoogleSignIn plugin for OAuth)
+const String kGoogleSignInWebClientId =
+    '612351187132-r3qrnh8660gcuuoik3p0ro14b7adi8k2.apps.googleusercontent.com';
