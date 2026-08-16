@@ -22,14 +22,14 @@ interface VisualMatch {
   title: string;
   link: string;
   domain: string;
-  classified_platform: "instagram" | "tiktok" | "youtube" | "other";
+  classified_platform: "instagram" | "tiktok" | "youtube" | "facebook" | "other";
   thumbnail?: string;
   source?: string;
 }
 
 function classifyDomain(
   urlString: string
-): "instagram" | "tiktok" | "youtube" | "other" {
+): "instagram" | "tiktok" | "youtube" | "facebook" | "other" {
   try {
     const parsed = new URL(urlString);
     const host = parsed.hostname.toLowerCase();
@@ -47,6 +47,15 @@ function classifyDomain(
       host.endsWith(".youtu.be")
     ) {
       return "youtube";
+    }
+    if (
+      host === "facebook.com" ||
+      host.endsWith(".facebook.com") ||
+      host === "fb.com" ||
+      host === "fb.watch" ||
+      host.endsWith(".fb.com")
+    ) {
+      return "facebook";
     }
     return "other";
   } catch (_) {
@@ -108,7 +117,6 @@ serve(async (req: Request) => {
 
     // 3. Obtain image_id from SerpApi if base64 provided
     if (image_base64) {
-      // Clean base64 string
       const cleanBase64 = image_base64.replace(/^data:image\/\w+;base64,/, "");
       const binaryData = Uint8Array.from(atob(cleanBase64), (c) => c.charCodeAt(0));
 
@@ -122,7 +130,6 @@ serve(async (req: Request) => {
         );
       }
 
-      // Upload binary to SerpApi temporary image buffer
       const formData = new FormData();
       const blob = new Blob([binaryData], { type: "image/jpeg" });
       formData.append("image", blob, "frame.jpg");
@@ -190,6 +197,7 @@ serve(async (req: Request) => {
       instagram: 0,
       tiktok: 0,
       youtube: 0,
+      facebook: 0,
       other: 0,
     };
 
@@ -204,7 +212,6 @@ serve(async (req: Request) => {
 
       summaryCounts[classified]++;
 
-      matches.add
       matches.push({
         position: item.position || count + 1,
         title: item.title || "Related Visual Result",

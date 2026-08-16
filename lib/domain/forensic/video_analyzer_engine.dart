@@ -97,43 +97,55 @@ class VideoAnalyzerEngine {
         onlineSearchResult = await _onlineSearchService.performVisualSearch(payload);
         if (onlineSearchResult.isSuccess && onlineSearchResult.matches.isNotEmpty) {
           final summary = onlineSearchResult.summary;
-          if (summary['instagram']! > 0) {
+          if ((summary['instagram'] ?? 0) > 0) {
             allEvidence.add(
-              const EvidenceItem(
+              EvidenceItem(
                 category: 'Online Visual Search',
                 finding: 'Related visual match detected on Instagram',
                 strength: EvidenceStrength.moderate,
-                scoreContribution: 15,
+                scoreContribution: (summary['instagram']! * 15).clamp(15, 30),
                 technicalExplanation:
-                    'Google Lens proxy identified matching visual content hosted on Instagram domains. Indicates related online presence, not definitive original upload proof.',
+                    'Google Lens proxy identified matching visual content hosted on Instagram domains. Indicates related online presence.',
               ),
             );
           }
-          if (summary['tiktok']! > 0) {
+          if ((summary['tiktok'] ?? 0) > 0) {
             allEvidence.add(
-              const EvidenceItem(
+              EvidenceItem(
                 category: 'Online Visual Search',
                 finding: 'Related visual match detected on TikTok',
                 strength: EvidenceStrength.moderate,
-                scoreContribution: 15,
+                scoreContribution: (summary['tiktok']! * 15).clamp(15, 30),
                 technicalExplanation:
-                    'Google Lens proxy identified matching visual content hosted on TikTok domains. Indicates related online presence, not definitive original upload proof.',
+                    'Google Lens proxy identified matching visual content hosted on TikTok domains. Indicates related online presence.',
               ),
             );
           }
-          if (summary['youtube']! > 0) {
+          if ((summary['youtube'] ?? 0) > 0) {
             allEvidence.add(
-              const EvidenceItem(
+              EvidenceItem(
                 category: 'Online Visual Search',
                 finding: 'Related visual match detected on YouTube',
                 strength: EvidenceStrength.moderate,
-                scoreContribution: 15,
+                scoreContribution: (summary['youtube']! * 15).clamp(15, 30),
                 technicalExplanation:
-                    'Google Lens proxy identified matching visual content hosted on YouTube domains. Indicates related online presence, not definitive original upload proof.',
+                    'Google Lens proxy identified matching visual content hosted on YouTube domains. Indicates related online presence.',
               ),
             );
           }
-          if (summary['other']! > 0) {
+          if ((summary['facebook'] ?? 0) > 0) {
+            allEvidence.add(
+              EvidenceItem(
+                category: 'Online Visual Search',
+                finding: 'Related visual match detected on Facebook',
+                strength: EvidenceStrength.moderate,
+                scoreContribution: (summary['facebook']! * 15).clamp(15, 30),
+                technicalExplanation:
+                    'Google Lens proxy identified matching visual content hosted on Facebook Watch/domains.',
+              ),
+            );
+          }
+          if ((summary['other'] ?? 0) > 0) {
             allEvidence.add(
               EvidenceItem(
                 category: 'Online Visual Search',

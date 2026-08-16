@@ -57,6 +57,30 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     }
   }
 
+  Future<void> _handleGoogleRegister() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final authService = ref.read(authServiceProvider);
+      final cred = await authService.signInWithGoogle();
+      if (cred != null && mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Google Sign-Up failed.';
+      });
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -169,6 +193,28 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
                       : const Text('CREATE ACCOUNT'),
+                ),
+                const SizedBox(height: 20),
+
+                const Row(
+                  children: [
+                    Expanded(child: Divider()),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        'OR QUICK REGISTER WITH',
+                        style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                      ),
+                    ),
+                    Expanded(child: Divider()),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                OutlinedButton.icon(
+                  onPressed: _isLoading ? null : _handleGoogleRegister,
+                  icon: const Icon(Icons.g_mobiledata, size: 24, color: AppColors.youtubeRed),
+                  label: const Text('Sign Up / Register with Google'),
                 ),
                 const SizedBox(height: 24),
 

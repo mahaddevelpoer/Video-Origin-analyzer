@@ -13,7 +13,7 @@ final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
   throw UnimplementedError('SharedPreferences must be initialized in main()');
 });
 
-final dailyUsageServiceProvider = Provider<DailyUsageService>((ref) {
+final dailyUsageServiceProvider = ChangeNotifierProvider<DailyUsageService>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
   return DailyUsageService(prefs);
 });

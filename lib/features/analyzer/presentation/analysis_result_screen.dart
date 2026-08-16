@@ -254,16 +254,21 @@ class AnalysisResultScreen extends ConsumerWidget {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          _buildPlatformBadge('Instagram', onlineRes.summary['instagram'] ?? 0),
-                          const SizedBox(width: 8),
-                          _buildPlatformBadge('TikTok', onlineRes.summary['tiktok'] ?? 0),
-                          const SizedBox(width: 8),
-                          _buildPlatformBadge('YouTube', onlineRes.summary['youtube'] ?? 0),
-                          const SizedBox(width: 8),
-                          _buildPlatformBadge('Other', onlineRes.summary['other'] ?? 0),
-                        ],
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            _buildPlatformBadge('Instagram', onlineRes.summary['instagram'] ?? 0),
+                            const SizedBox(width: 8),
+                            _buildPlatformBadge('TikTok', onlineRes.summary['tiktok'] ?? 0),
+                            const SizedBox(width: 8),
+                            _buildPlatformBadge('YouTube', onlineRes.summary['youtube'] ?? 0),
+                            const SizedBox(width: 8),
+                            _buildPlatformBadge('Facebook', onlineRes.summary['facebook'] ?? 0),
+                            const SizedBox(width: 8),
+                            _buildPlatformBadge('Other', onlineRes.summary['other'] ?? 0),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 14),
                       const Divider(),

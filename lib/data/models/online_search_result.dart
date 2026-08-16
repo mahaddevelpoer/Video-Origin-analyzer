@@ -3,7 +3,7 @@ class OnlineMatchItem {
   final String title;
   final String link;
   final String domain;
-  final String classifiedPlatform; // 'instagram' | 'tiktok' | 'youtube' | 'other'
+  final String classifiedPlatform; // 'instagram' | 'tiktok' | 'youtube' | 'facebook' | 'other'
   final String? thumbnail;
   final String? source;
 
@@ -63,7 +63,7 @@ class OnlineSearchResult {
     return OnlineSearchResult(
       status: 'failed',
       totalMatches: 0,
-      summary: {'instagram': 0, 'tiktok': 0, 'youtube': 0, 'other': 0},
+      summary: {'instagram': 0, 'tiktok': 0, 'youtube': 0, 'facebook': 0, 'other': 0},
       matches: [],
       errorMessage: message,
       errorCode: code,
@@ -85,6 +85,7 @@ class OnlineSearchResult {
       'instagram': rawSummary['instagram'] as int? ?? 0,
       'tiktok': rawSummary['tiktok'] as int? ?? 0,
       'youtube': rawSummary['youtube'] as int? ?? 0,
+      'facebook': rawSummary['facebook'] as int? ?? 0,
       'other': rawSummary['other'] as int? ?? 0,
     };
 
