@@ -55,8 +55,8 @@ serve(async (req) => {
         'x-api-key': apiKey,
         'Accept': 'application/json',
       },
-      // 8 second timeout
-      signal: AbortSignal.timeout(8000),
+      // 15 second timeout for live scraping
+      signal: AbortSignal.timeout(15000),
     });
 
     if (!crawlResponse.ok) {
@@ -134,10 +134,10 @@ serve(async (req) => {
     );
 
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    // Do NOT include stack traces or API key in error responses
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('social-crawl error:', message);
     return new Response(
-      JSON.stringify({ status: 'error', message: message.includes('timeout') ? 'Request timed out' : 'Internal error' }),
+      JSON.stringify({ status: 'error', message: message.includes('timeout') ? 'Request timed out' : message }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   }
