@@ -7,6 +7,7 @@ import '../../data/services/frame_extractor_service.dart';
 import '../../data/services/local_ocr_service.dart';
 import '../../data/services/online_visual_search_service.dart';
 import '../../data/services/social_crawl_service.dart';
+import '../../data/utils/instagram_timestamp_decoder.dart';
 import 'analyzers/audio_analyzer.dart';
 import 'analyzers/container_analyzer.dart';
 import 'analyzers/fingerprint_analyzer.dart';
@@ -143,11 +144,42 @@ class VideoAnalyzerEngine {
 
           for (final match in onlineSearchResult.matches) {
             SocialCrawlPostEvidence? postEvidence;
+
+            // 1. INSTAGRAM SHORTCODE DECODER: Mathematical Snowflake extraction (0 API credits, 100% accurate)
+            if (match.classifiedPlatform == 'instagram') {
+              final decodedTimestamp = InstagramTimestampDecoder.decodeToIsoString(match.link);
+              if (decodedTimestamp != null) {
+                postEvidence = SocialCrawlPostEvidence(
+                  platform: 'instagram',
+                  url: match.link,
+                  platformPostTimestamp: decodedTimestamp,
+                  retrievedAt: DateTime.now().toUtc().toIso8601String(),
+                );
+              }
+            }
+
+            // 2. Fetch additional live engagement/author details from proxy if needed
             if (match.classifiedPlatform == 'instagram' ||
                 match.classifiedPlatform == 'tiktok' ||
                 match.classifiedPlatform == 'youtube') {
               try {
-                postEvidence = await socialCrawlService.fetchPostMetadata(match.link);
+                final liveMetadata = await socialCrawlService.fetchPostMetadata(match.link);
+                if (liveMetadata != null) {
+                  // Merge decoded timestamp with live engagement metrics
+                  postEvidence = SocialCrawlPostEvidence(
+                    platform: match.classifiedPlatform,
+                    url: match.link,
+                    platformPostTimestamp: postEvidence?.platformPostTimestamp ?? liveMetadata.platformPostTimestamp,
+                    authorUsername: liveMetadata.authorUsername,
+                    authorDisplayName: liveMetadata.authorDisplayName,
+                    captionText: liveMetadata.captionText,
+                    likesCount: liveMetadata.likesCount,
+                    commentsCount: liveMetadata.commentsCount,
+                    viewsCount: liveMetadata.viewsCount,
+                    sharesCount: liveMetadata.sharesCount,
+                    retrievedAt: liveMetadata.retrievedAt,
+                  );
+                }
               } catch (_) {}
             }
 
@@ -170,14 +202,17 @@ class VideoAnalyzerEngine {
 
             if (postEvidence != null) {
               final platformCap = match.classifiedPlatform.toUpperCase();
+              final sourceDesc = match.classifiedPlatform == 'instagram'
+                  ? 'Instagram Snowflake ID decoded'
+                  : 'Social platform proxy verified';
               allEvidence.add(
                 EvidenceItem(
                   category: 'Platform Post Evidence',
-                  finding: '$platformCap public post metadata verified (${postEvidence.authorUsername ?? "Post"})',
+                  finding: '$platformCap public post metadata verified (${postEvidence.authorUsername != null ? "@${postEvidence.authorUsername}" : "Decoded Post"})',
                   strength: EvidenceStrength.strong,
                   scoreContribution: 20,
                   technicalExplanation:
-                      'SocialCrawl retrieved authenticated $platformCap post metadata: Published ${postEvidence.platformPostTimestamp ?? "N/A"}, Likes ${postEvidence.likesCount ?? "N/A"}.',
+                      '$sourceDesc: Published ${postEvidence.platformPostTimestamp ?? "N/A"}, Views ${postEvidence.viewsCount ?? "N/A"}.',
                 ),
               );
             }

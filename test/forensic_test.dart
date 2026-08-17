@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_origin_analyzer/data/local/daily_usage_service.dart';
 import 'package:video_origin_analyzer/data/models/evidence_item.dart';
 import 'package:video_origin_analyzer/data/services/local_ocr_service.dart';
+import 'package:video_origin_analyzer/data/utils/instagram_timestamp_decoder.dart';
 import 'package:video_origin_analyzer/data/utils/url_platform_detector.dart';
 import 'package:video_origin_analyzer/domain/forensic/scoring/scoring_engine.dart';
 
@@ -140,6 +141,21 @@ void main() {
       final normalizedIg = UrlPlatformDetector.normalizeUrl(igUrl);
       expect(normalizedIg.contains('utm_source'), false);
       expect(normalizedIg.contains('igsh'), false);
+    });
+  });
+
+  group('InstagramTimestampDecoder Tests', () {
+    test('Decodes Instagram Reel URL to exact UTC timestamp mathematically', () {
+      const sampleReelUrl = 'https://www.instagram.com/reel/Dbmx219TVIR/?utm_source=ig_web_copy_link';
+      final decodedDate = InstagramTimestampDecoder.decodeShortcodeToDate(sampleReelUrl);
+
+      expect(decodedDate, isNotNull);
+      expect(decodedDate!.year, 2026);
+      expect(decodedDate.month, 8);
+      expect(decodedDate.day, 4);
+
+      final iso = InstagramTimestampDecoder.decodeToIsoString(sampleReelUrl);
+      expect(iso, contains('2026-08-04'));
     });
   });
 }
