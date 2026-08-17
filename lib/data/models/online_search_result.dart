@@ -1,5 +1,70 @@
 enum DateConfidence { high, medium, low, unknown }
 
+class SocialCrawlPostEvidence {
+  final String platform;
+  final String url;
+  final String? platformPostTimestamp; // Distinct from searchResultDate!
+  final String? authorUsername;
+  final String? authorDisplayName;
+  final String? captionText;
+  final int? likesCount; // null = unavailable (NOT 0!)
+  final int? commentsCount;
+  final int? viewsCount;
+  final int? sharesCount;
+  final String? retrievedAt;
+
+  const SocialCrawlPostEvidence({
+    required this.platform,
+    required this.url,
+    this.platformPostTimestamp,
+    this.authorUsername,
+    this.authorDisplayName,
+    this.captionText,
+    this.likesCount,
+    this.commentsCount,
+    this.viewsCount,
+    this.sharesCount,
+    this.retrievedAt,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'platform': platform,
+        'url': url,
+        'platform_post_timestamp': platformPostTimestamp,
+        'author_username': authorUsername,
+        'author_display_name': authorDisplayName,
+        'caption_text': captionText,
+        'likes_count': likesCount,
+        'comments_count': commentsCount,
+        'views_count': viewsCount,
+        'shares_count': sharesCount,
+        'retrieved_at': retrievedAt,
+      };
+
+  factory SocialCrawlPostEvidence.fromJson(Map<String, dynamic> json) {
+    // SocialCrawl unified response: { success, platform, data: { author, engagement, metadata } }
+    // OR the edge function normalizes it and passes the pre-mapped fields directly.
+    // Support both: direct flat fields (from edge function) and nested (from raw SocialCrawl).
+    final platform = json['platform'] as String? ?? 'other';
+    final url = json['url'] as String? ?? '';
+
+    // Edge function pre-normalizes fields into a flat structure
+    return SocialCrawlPostEvidence(
+      platform: platform,
+      url: url,
+      platformPostTimestamp: json['platform_post_timestamp'] as String?,
+      authorUsername: json['author_username'] as String?,
+      authorDisplayName: json['author_display_name'] as String?,
+      captionText: json['caption_text'] as String?,
+      likesCount: (json['likes_count'] as num?)?.toInt(),
+      commentsCount: (json['comments_count'] as num?)?.toInt(),
+      viewsCount: (json['views_count'] as num?)?.toInt(),
+      sharesCount: (json['shares_count'] as num?)?.toInt(),
+      retrievedAt: json['retrieved_at'] as String?,
+    );
+  }
+}
+
 class OnlineMatchItem {
   final int position;
   final String title;
@@ -9,10 +74,11 @@ class OnlineMatchItem {
   final String? thumbnail;
   final String? source;
   final String matchType; // 'exact_match' | 'visual_match' | 'google_search' | 'about_this_image'
-  final String? date; // ONLINE DATE EVIDENCE string (e.g., 'Aug 10, 2026')
+  final String? date; // ONLINE SEARCH DATE EVIDENCE string (e.g., 'Aug 10, 2026')
   final DateConfidence dateConfidence;
   final String? snippet;
   final String? ocrQuery;
+  final SocialCrawlPostEvidence? platformEvidence;
 
   const OnlineMatchItem({
     required this.position,
@@ -27,6 +93,7 @@ class OnlineMatchItem {
     this.dateConfidence = DateConfidence.unknown,
     this.snippet,
     this.ocrQuery,
+    this.platformEvidence,
   });
 
   Map<String, dynamic> toJson() => {
@@ -42,6 +109,7 @@ class OnlineMatchItem {
         'date_confidence': dateConfidence.name,
         'snippet': snippet,
         'ocr_query': ocrQuery,
+        if (platformEvidence != null) 'platform_evidence': platformEvidence!.toJson(),
       };
 
   factory OnlineMatchItem.fromJson(Map<String, dynamic> json) {
@@ -62,6 +130,10 @@ class OnlineMatchItem {
       orElse: () => DateConfidence.unknown,
     );
 
+    final platformEv = json['platform_evidence'] != null
+        ? SocialCrawlPostEvidence.fromJson(Map<String, dynamic>.from(json['platform_evidence']))
+        : null;
+
     return OnlineMatchItem(
       position: json['position'] as int? ?? 0,
       title: json['title'] as String? ?? 'Related Visual Match',
@@ -75,6 +147,7 @@ class OnlineMatchItem {
       dateConfidence: conf,
       snippet: json['snippet'] as String?,
       ocrQuery: json['ocr_query'] as String?,
+      platformEvidence: platformEv,
     );
   }
 }

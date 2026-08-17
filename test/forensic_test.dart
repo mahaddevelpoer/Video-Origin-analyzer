@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_origin_analyzer/data/local/daily_usage_service.dart';
 import 'package:video_origin_analyzer/data/models/evidence_item.dart';
 import 'package:video_origin_analyzer/data/services/local_ocr_service.dart';
+import 'package:video_origin_analyzer/data/utils/url_platform_detector.dart';
 import 'package:video_origin_analyzer/domain/forensic/scoring/scoring_engine.dart';
 
 void main() {
@@ -123,6 +124,22 @@ void main() {
       expect(cleaned.contains('JFIF'), false);
       expect(usernames, contains('@creator_user'));
       expect(hashtags, contains('#viral'));
+    });
+  });
+
+  group('UrlPlatformDetector Tests', () {
+    test('Detects platform and normalizes social URLs', () {
+      const igUrl = 'https://www.instagram.com/reel/abc123/?utm_source=igweb&igsh=123';
+      const ttUrl = 'https://www.tiktok.com/@user/video/71829304918239?is_from_webapp=1';
+      const ytUrl = 'https://youtu.be/dQw4w9WgXcQ';
+
+      expect(UrlPlatformDetector.detectPlatform(igUrl), DetectedPlatform.instagram);
+      expect(UrlPlatformDetector.detectPlatform(ttUrl), DetectedPlatform.tiktok);
+      expect(UrlPlatformDetector.detectPlatform(ytUrl), DetectedPlatform.youtube);
+
+      final normalizedIg = UrlPlatformDetector.normalizeUrl(igUrl);
+      expect(normalizedIg.contains('utm_source'), false);
+      expect(normalizedIg.contains('igsh'), false);
     });
   });
 }

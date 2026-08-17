@@ -6,6 +6,7 @@ import '../../data/models/platform_result.dart';
 import '../../data/services/frame_extractor_service.dart';
 import '../../data/services/local_ocr_service.dart';
 import '../../data/services/online_visual_search_service.dart';
+import '../../data/services/social_crawl_service.dart';
 import 'analyzers/audio_analyzer.dart';
 import 'analyzers/container_analyzer.dart';
 import 'analyzers/fingerprint_analyzer.dart';
@@ -125,8 +126,11 @@ class VideoAnalyzerEngine {
     );
     allEvidence.addAll(visualResult.evidence);
 
-    // Stage 8: Online Evidence integration (Visual Lens + OCR Text Search Proxy)
+    // Stage 8: Online Evidence integration (Visual Lens + OCR Text Search + SocialCrawl Proxy)
     OnlineSearchResult? onlineSearchResult;
+    final socialCrawlService = SocialCrawlService();
+    socialCrawlService.clearSessionCache();
+
     if (_onlineSearchService != null) {
       try {
         onlineSearchResult = await _onlineSearchService.performVisualSearch(
@@ -135,6 +139,57 @@ class VideoAnalyzerEngine {
         );
 
         if (onlineSearchResult.isSuccess && onlineSearchResult.matches.isNotEmpty) {
+          final enrichedMatches = <OnlineMatchItem>[];
+
+          for (final match in onlineSearchResult.matches) {
+            SocialCrawlPostEvidence? postEvidence;
+            if (match.classifiedPlatform == 'instagram' ||
+                match.classifiedPlatform == 'tiktok' ||
+                match.classifiedPlatform == 'youtube') {
+              try {
+                postEvidence = await socialCrawlService.fetchPostMetadata(match.link);
+              } catch (_) {}
+            }
+
+            final enrichedMatch = OnlineMatchItem(
+              position: match.position,
+              title: match.title,
+              link: match.link,
+              domain: match.domain,
+              classifiedPlatform: match.classifiedPlatform,
+              thumbnail: match.thumbnail,
+              source: match.source,
+              matchType: match.matchType,
+              date: match.date,
+              dateConfidence: match.dateConfidence,
+              snippet: match.snippet,
+              ocrQuery: match.ocrQuery,
+              platformEvidence: postEvidence,
+            );
+            enrichedMatches.add(enrichedMatch);
+
+            if (postEvidence != null) {
+              final platformCap = match.classifiedPlatform.toUpperCase();
+              allEvidence.add(
+                EvidenceItem(
+                  category: 'Platform Post Evidence',
+                  finding: '$platformCap public post metadata verified (${postEvidence.authorUsername ?? "Post"})',
+                  strength: EvidenceStrength.strong,
+                  scoreContribution: 20,
+                  technicalExplanation:
+                      'SocialCrawl retrieved authenticated $platformCap post metadata: Published ${postEvidence.platformPostTimestamp ?? "N/A"}, Likes ${postEvidence.likesCount ?? "N/A"}.',
+                ),
+              );
+            }
+          }
+
+          onlineSearchResult = OnlineSearchResult(
+            status: onlineSearchResult.status,
+            totalMatches: onlineSearchResult.totalMatches,
+            summary: onlineSearchResult.summary,
+            matches: enrichedMatches,
+          );
+
           final summary = onlineSearchResult.summary;
           if ((summary['instagram'] ?? 0) > 0) {
             allEvidence.add(

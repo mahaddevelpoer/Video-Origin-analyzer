@@ -32,7 +32,44 @@ class TimelineAnalyzer {
       return TimelineAnalysisResult(evidence: evidence);
     }
 
-    // Extract valid online dates
+    // Check for direct Platform Post Timestamps (from SocialCrawl) first
+    final platformPostsWithTimestamps = onlineResult.matches
+        .where((m) =>
+            m.platformEvidence != null &&
+            m.platformEvidence!.platformPostTimestamp != null &&
+            m.platformEvidence!.platformPostTimestamp!.isNotEmpty &&
+            m.classifiedPlatform != 'other')
+        .toList();
+
+    if (platformPostsWithTimestamps.isNotEmpty) {
+      platformPostsWithTimestamps.sort((a, b) => a.position.compareTo(b.position));
+      final earliestPost = platformPostsWithTimestamps.first;
+      final postEv = earliestPost.platformEvidence!;
+
+      String platformName = earliestPost.classifiedPlatform.toUpperCase();
+      if (earliestPost.classifiedPlatform == 'tiktok') platformName = 'TikTok';
+      if (earliestPost.classifiedPlatform == 'instagram') platformName = 'Instagram';
+      if (earliestPost.classifiedPlatform == 'youtube') platformName = 'YouTube';
+
+      evidence.add(
+        EvidenceItem(
+          category: 'Timeline Evidence',
+          finding: '$platformName has the earliest matching public platform-post timestamp found (${postEv.platformPostTimestamp})',
+          strength: EvidenceStrength.strong,
+          scoreContribution: 25,
+          technicalExplanation:
+              'Direct platform metadata indicates $platformName has the earliest matching public platform-post timestamp found. Note: A public platform timestamp indicates when content was posted on that platform and does not definitively prove original creation or upload.',
+        ),
+      );
+
+      return TimelineAnalysisResult(
+        earliestPlatform: earliestPost.classifiedPlatform,
+        earliestDateString: postEv.platformPostTimestamp,
+        evidence: evidence,
+      );
+    }
+
+    // Fallback: Check for search engine discovery dates
     final datedMatches = onlineResult.matches
         .where((m) => m.date != null && m.date!.isNotEmpty && m.classifiedPlatform != 'other')
         .toList();
@@ -45,13 +82,12 @@ class TimelineAnalyzer {
           strength: EvidenceStrength.neutral,
           scoreContribution: 0,
           technicalExplanation:
-              'Online visual matches discovered, but search engines did not provide indexed date tags for comparison.',
+              'Online matches discovered, but search engines did not provide indexed date tags for comparison.',
         ),
       );
       return TimelineAnalysisResult(evidence: evidence);
     }
 
-    // Sort matches by position / date priority
     datedMatches.sort((a, b) => a.position.compareTo(b.position));
     final earliest = datedMatches.first;
 
@@ -63,13 +99,13 @@ class TimelineAnalyzer {
     evidence.add(
       EvidenceItem(
         category: 'Timeline Evidence',
-        finding: '$platformName has the earliest discovered online evidence (${earliest.date})',
+        finding: '$platformName has the earliest discovered search-indexed date (${earliest.date})',
         strength: earliest.dateConfidence == DateConfidence.high
             ? EvidenceStrength.strong
             : EvidenceStrength.moderate,
-        scoreContribution: earliest.dateConfidence == DateConfidence.high ? 20 : 10,
+        scoreContribution: earliest.dateConfidence == DateConfidence.high ? 15 : 10,
         technicalExplanation:
-            'Indexed date evidence indicates $platformName content was discovered online earlier than other candidates. Note: Online date evidence represents search discovery date and does not definitively prove original creator upload timestamp.',
+            'Indexed date evidence indicates $platformName content was discovered online earlier than other candidates.',
       ),
     );
 

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../data/models/analysis_session.dart';
@@ -237,9 +238,9 @@ class AnalysisResultScreen extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.lightSurface,
+                  color: Theme.of(context).cardTheme.color ?? AppColors.lightSurface,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.lightBorder),
+                  border: Border.all(color: Theme.of(context).dividerColor),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -250,11 +251,11 @@ class AnalysisResultScreen extends ConsumerWidget {
                           const Icon(Icons.travel_explore, color: AppColors.youtubeRed, size: 20),
                           const SizedBox(width: 8),
                           Text(
-                            '${onlineRes.totalMatches} Related Online Matches Found',
-                            style: const TextStyle(
-                              fontSize: 14,
+                            'ONLINE PLATFORM EVIDENCE (${onlineRes.totalMatches} Matches)',
+                            style: TextStyle(
+                              fontSize: 13,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.textDark,
+                              color: Theme.of(context).textTheme.bodyLarge?.color ?? AppColors.textDark,
                             ),
                           ),
                         ],
@@ -270,8 +271,6 @@ class AnalysisResultScreen extends ConsumerWidget {
                             const SizedBox(width: 8),
                             _buildPlatformBadge('YouTube', onlineRes.summary['youtube'] ?? 0),
                             const SizedBox(width: 8),
-                            _buildPlatformBadge('Facebook', onlineRes.summary['facebook'] ?? 0),
-                            const SizedBox(width: 8),
                             _buildPlatformBadge('Other', onlineRes.summary['other'] ?? 0),
                           ],
                         ),
@@ -280,48 +279,101 @@ class AnalysisResultScreen extends ConsumerWidget {
                       const Divider(),
                       const SizedBox(height: 10),
                       ...onlineRes.matches.take(4).map((match) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Row(
+                        final postEv = match.platformEvidence;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).scaffoldBackgroundColor,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Theme.of(context).dividerColor),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: AppColors.lightBackground,
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: AppColors.lightBorder),
-                                ),
-                                child: Text(
-                                  match.classifiedPlatform.toUpperCase(),
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.youtubeRed,
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.youtubeRed,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      match.classifiedPlatform.toUpperCase(),
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
                                       match.title,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
-                                        color: AppColors.textDark,
+                                        color: Theme.of(context).textTheme.bodyLarge?.color ?? AppColors.textDark,
                                       ),
                                     ),
-                                    Text(
-                                      match.domain,
-                                      style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                  ),
+                                  if (match.link.isNotEmpty)
+                                    InkWell(
+                                      onTap: () {
+                                        Share.share('Source Match URL: ${match.link}');
+                                      },
+                                      child: const Padding(
+                                        padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                        child: Text(
+                                          '[View Source]',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.youtubeRed,
+                                          ),
+                                        ),
+                                      ),
                                     ),
+                                ],
+                              ),
+                              if (postEv != null) ...[
+                                const SizedBox(height: 8),
+                                if (postEv.platformPostTimestamp != null)
+                                  Text(
+                                    'Platform Post Date: ${postEv.platformPostTimestamp}',
+                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.youtubeRed),
+                                  ),
+                                if (postEv.authorUsername != null)
+                                  Text(
+                                    'Author: @${postEv.authorUsername}',
+                                    style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                  ),
+                                const SizedBox(height: 4),
+                                Wrap(
+                                  spacing: 12,
+                                  runSpacing: 4,
+                                  children: [
+                                    if (postEv.likesCount != null)
+                                      Text('Likes: ${_formatNumber(postEv.likesCount!)}', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                                    if (postEv.commentsCount != null)
+                                      Text('Comments: ${_formatNumber(postEv.commentsCount!)}', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                                    if (postEv.viewsCount != null)
+                                      Text('Views: ${_formatNumber(postEv.viewsCount!)}', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                                    if (postEv.sharesCount != null)
+                                      Text('Shares: ${_formatNumber(postEv.sharesCount!)}', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
                                   ],
                                 ),
-                              ),
+                              ] else ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  match.domain,
+                                  style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                ),
+                              ],
                             ],
                           ),
                         );
@@ -345,11 +397,11 @@ class AnalysisResultScreen extends ConsumerWidget {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: AppColors.lightBackground,
+                        color: Theme.of(context).scaffoldBackgroundColor,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Text(
-                        'Note: Online matches indicate where related content was found on the web. They do not independently prove the original source upload.',
+                        'Note: Public platform timestamps indicate discovered platform post creation date and do not definitively prove original creator source upload without access to all historical/private copies.',
                         style: TextStyle(fontSize: 11, color: AppColors.textMuted, height: 1.3),
                       ),
                     ),
@@ -561,5 +613,15 @@ class AnalysisResultScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  String _formatNumber(int num) {
+    if (num >= 1000000) {
+      return '${(num / 1000000).toStringAsFixed(1)}M';
+    }
+    if (num >= 1000) {
+      return '${(num / 1000).toStringAsFixed(1)}K';
+    }
+    return num.toString();
   }
 }
