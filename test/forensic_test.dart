@@ -4,6 +4,7 @@ import 'package:video_origin_analyzer/data/local/daily_usage_service.dart';
 import 'package:video_origin_analyzer/data/models/evidence_item.dart';
 import 'package:video_origin_analyzer/data/services/local_ocr_service.dart';
 import 'package:video_origin_analyzer/data/utils/instagram_timestamp_decoder.dart';
+import 'package:video_origin_analyzer/data/utils/tiktok_timestamp_decoder.dart';
 import 'package:video_origin_analyzer/data/utils/url_platform_detector.dart';
 import 'package:video_origin_analyzer/domain/forensic/scoring/scoring_engine.dart';
 
@@ -156,6 +157,20 @@ void main() {
 
       final iso = InstagramTimestampDecoder.decodeToIsoString(sampleReelUrl);
       expect(iso, contains('2026-08-04'));
+    });
+  });
+
+  group('TikTokTimestampDecoder Tests', () {
+    test('Decodes TikTok video ID/URL to exact UTC timestamp mathematically', () {
+      const sampleTikTokUrl = 'https://www.tiktok.com/@tiktok/video/7106594312292453678?is_from_webapp=1';
+      final decodedDate = TikTokTimestampDecoder.decodeVideoIdToDate(sampleTikTokUrl);
+
+      expect(decodedDate, isNotNull);
+      expect(decodedDate!.year, 2022);
+      expect(decodedDate.month, 6);
+
+      final iso = TikTokTimestampDecoder.decodeToIsoString(sampleTikTokUrl);
+      expect(iso, contains('2022-06'));
     });
   });
 }
