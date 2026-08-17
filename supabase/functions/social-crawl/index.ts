@@ -68,6 +68,7 @@ serve(async (req) => {
     }
 
     const crawlData = await crawlResponse.json();
+    console.log('SocialCrawl Raw Response:', JSON.stringify(crawlData));
 
     if (!crawlData.success || !crawlData.data) {
       return new Response(
@@ -77,42 +78,33 @@ serve(async (req) => {
     }
 
     const data = crawlData.data;
+    const post = data.post || data;
+    const authorObj = post.author || post.user || post.owner || {};
+    const metadataObj = post.metadata || {};
+    const engagementObj = post.engagement || post.stats || post.metrics || data.computed || {};
+    const contentObj = post.content || post.caption || {};
 
-    // === NORMALISE RESPONSE TO FLAT STRUCTURE ===
-    // SocialCrawl unified schema:
-    //   { success, platform, data: { author: { username, followers, full_name? },
-    //     engagement: { likes, comments, views?, shares?, engagement_rate },
-    //     metadata: { taken_at? (Instagram Unix ts), published_at? (TikTok ISO), content? { text } }
-    //   }}
-
-    // Instagram: taken_at is Unix timestamp (seconds)
-    // TikTok: published_at is ISO string (unified schema)
+    // Timestamp resolution (taken_at, timestamp, published_at, created_time)
     let platformPostTimestamp: string | null = null;
-    if (data.metadata?.taken_at) {
-      // Convert Unix timestamp to ISO string
-      const ts = Number(data.metadata.taken_at);
-      if (!isNaN(ts) && ts > 0) {
-        platformPostTimestamp = new Date(ts * 1000).toISOString();
-      }
-    } else if (data.metadata?.published_at) {
-      platformPostTimestamp = String(data.metadata.published_at);
-    } else if (data.taken_at) {
-      // Fallback: some endpoints surface taken_at at root level
-      const ts = Number(data.taken_at);
-      if (!isNaN(ts) && ts > 0) {
-        platformPostTimestamp = new Date(ts * 1000).toISOString();
+    const rawTs = metadataObj.taken_at || metadataObj.timestamp || metadataObj.published_at || post.taken_at || post.timestamp || post.published_at || post.create_time || post.created_time;
+    if (rawTs) {
+      const numTs = Number(rawTs);
+      if (!isNaN(numTs) && numTs > 0) {
+        const tsInMs = numTs < 10000000000 ? numTs * 1000 : numTs;
+        platformPostTimestamp = new Date(tsInMs).toISOString();
+      } else if (typeof rawTs === 'string') {
+        platformPostTimestamp = rawTs;
       }
     }
 
-    const authorUsername = data.author?.username ?? data.author?.handle ?? null;
-    const authorDisplayName = data.author?.full_name ?? data.author?.nickname ?? data.author?.name ?? null;
-    const captionText = data.metadata?.content?.text ?? data.caption?.text ?? data.desc ?? null;
+    const authorUsername = authorObj.username || authorObj.handle || authorObj.unique_id || post.username || null;
+    const authorDisplayName = authorObj.full_name || authorObj.nickname || authorObj.name || null;
+    const captionText = contentObj.text || contentObj.caption || post.caption || post.desc || (typeof post.text === 'string' ? post.text : null);
 
-    const engagement = data.engagement ?? {};
-    const likesCount = engagement.likes ?? null;
-    const commentsCount = engagement.comments ?? null;
-    const viewsCount = engagement.views ?? engagement.view_count ?? null;
-    const sharesCount = engagement.shares ?? engagement.share_count ?? null;
+    const likesCount = engagementObj.likes ?? engagementObj.like_count ?? engagementObj.digg_count ?? post.like_count ?? post.likes ?? null;
+    const commentsCount = engagementObj.comments ?? engagementObj.comment_count ?? post.comment_count ?? post.comments ?? null;
+    const viewsCount = engagementObj.views ?? engagementObj.view_count ?? engagementObj.play_count ?? post.play_count ?? post.view_count ?? null;
+    const sharesCount = engagementObj.shares ?? engagementObj.share_count ?? post.share_count ?? post.shares ?? null;
 
     const normalized = {
       platform: platform.toLowerCase(),
