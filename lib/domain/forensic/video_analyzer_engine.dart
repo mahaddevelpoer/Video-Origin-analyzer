@@ -208,7 +208,7 @@ class VideoAnalyzerEngine {
                   ? 'Instagram Snowflake ID decoded'
                   : match.classifiedPlatform == 'tiktok'
                       ? 'TikTok Snowflake ID decoded (video_id >> 32)'
-                      : 'Social platform proxy verified';
+                      : 'YouTube Data API v3 verified';
               allEvidence.add(
                 EvidenceItem(
                   category: 'Platform Post Evidence',
@@ -216,7 +216,7 @@ class VideoAnalyzerEngine {
                   strength: EvidenceStrength.strong,
                   scoreContribution: 20,
                   technicalExplanation:
-                      '$sourceDesc: Published ${postEvidence.platformPostTimestamp ?? "N/A"}. Exact mathematical timestamp extracted on-device without API key.',
+                      '$sourceDesc: Published ${postEvidence.platformPostTimestamp ?? "N/A"}. Exact verified platform timestamp.',
                 ),
               );
             }

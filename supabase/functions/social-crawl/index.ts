@@ -8,6 +8,16 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
+// Extract YouTube Video ID from any format (shorts, watch, youtu.be, embed)
+function extractYouTubeVideoId(url: string): string | null {
+  const pattern = /(?:v=|\/shorts\/|\/embed\/|youtu\.be\/|\/v\/)([a-zA-Z0-9_-]{11})/;
+  const match = url.match(pattern);
+  if (match && match[1]) {
+    return match[1];
+  }
+  return null;
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -24,11 +34,82 @@ serve(async (req) => {
       );
     }
 
-    // Validate platform — only Instagram and TikTok are supported via SocialCrawl post endpoints
-    const allowedPlatforms = ['instagram', 'tiktok'];
-    if (!allowedPlatforms.includes(platform.toLowerCase())) {
+    const platformLower = platform.toLowerCase();
+
+    // ==========================================
+    // 1. YOUTUBE HANDLER (Official YouTube Data API v3)
+    // ==========================================
+    if (platformLower === 'youtube') {
+      const ytApiKey = Deno.env.get('yt_api');
+      if (!ytApiKey) {
+        return new Response(
+          JSON.stringify({ status: 'error', message: 'YouTube API configuration missing (yt_api secret not set)' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+
+      const videoId = extractYouTubeVideoId(url);
+      if (!videoId) {
+        return new Response(
+          JSON.stringify({ status: 'error', message: 'Could not extract YouTube video ID from URL' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+
+      const ytEndpoint = `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&id=${encodeURIComponent(videoId)}&key=${encodeURIComponent(ytApiKey)}`;
+
+      const ytResponse = await fetch(ytEndpoint, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (!ytResponse.ok) {
+        return new Response(
+          JSON.stringify({ status: 'api_error', message: `YouTube API returned status ${ytResponse.status}` }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+
+      const ytData = await ytResponse.json();
+      if (!ytData.items || ytData.items.length === 0) {
+        return new Response(
+          JSON.stringify({ status: 'not_found', message: 'YouTube video not found or private' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+
+      const item = ytData.items[0];
+      const snippet = item.snippet || {};
+      const stats = item.statistics || {};
+
+      const normalizedYouTube = {
+        platform: 'youtube',
+        url,
+        platform_post_timestamp: snippet.publishedAt || null, // e.g. 2026-08-04T05:09:34Z
+        author_username: snippet.channelTitle || null,
+        author_display_name: snippet.channelTitle || null,
+        caption_text: snippet.title ? `${snippet.title}\n\n${snippet.description || ''}`.substring(0, 300) : null,
+        likes_count: stats.likeCount ? Number(stats.likeCount) : null,
+        comments_count: stats.commentCount ? Number(stats.commentCount) : null,
+        views_count: stats.viewCount ? Number(stats.viewCount) : null,
+        shares_count: null,
+        retrieved_at: new Date().toISOString(),
+      };
+
       return new Response(
-        JSON.stringify({ status: 'unsupported', message: `Platform '${platform}' is not supported by the SocialCrawl post endpoint` }),
+        JSON.stringify({ status: 'success', data: normalizedYouTube }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // ==========================================
+    // 2. INSTAGRAM & TIKTOK (SocialCrawl API)
+    // ==========================================
+    const allowedPlatforms = ['instagram', 'tiktok'];
+    if (!allowedPlatforms.includes(platformLower)) {
+      return new Response(
+        JSON.stringify({ status: 'unsupported', message: `Platform '${platform}' is not supported` }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
@@ -43,7 +124,7 @@ serve(async (req) => {
     }
 
     // Build the correct SocialCrawl endpoint
-    const platformEndpoint = platform.toLowerCase() === 'instagram'
+    const platformEndpoint = platformLower === 'instagram'
       ? `${SOCIALCRAWL_BASE}/instagram/post`
       : `${SOCIALCRAWL_BASE}/tiktok/post`;
 
@@ -55,12 +136,10 @@ serve(async (req) => {
         'x-api-key': apiKey,
         'Accept': 'application/json',
       },
-      // 15 second timeout for live scraping
       signal: AbortSignal.timeout(15000),
     });
 
     if (!crawlResponse.ok) {
-      // Don't leak API key or internal error details
       return new Response(
         JSON.stringify({ status: 'api_error', message: `SocialCrawl returned status ${crawlResponse.status}` }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
@@ -68,7 +147,6 @@ serve(async (req) => {
     }
 
     const crawlData = await crawlResponse.json();
-    console.log('SocialCrawl Raw Response:', JSON.stringify(crawlData));
 
     if (!crawlData.success || !crawlData.data) {
       return new Response(
@@ -84,7 +162,7 @@ serve(async (req) => {
     const engagementObj = post.engagement || post.stats || post.metrics || data.computed || {};
     const contentObj = post.content || post.caption || {};
 
-    // Timestamp resolution (taken_at, timestamp, published_at, created_time)
+    // Timestamp resolution
     let platformPostTimestamp: string | null = null;
     const rawTs = metadataObj.taken_at || metadataObj.timestamp || metadataObj.published_at || post.taken_at || post.timestamp || post.published_at || post.create_time || post.created_time;
     if (rawTs) {
@@ -107,7 +185,7 @@ serve(async (req) => {
     const sharesCount = engagementObj.shares ?? engagementObj.share_count ?? post.share_count ?? post.shares ?? null;
 
     const normalized = {
-      platform: platform.toLowerCase(),
+      platform: platformLower,
       url,
       platform_post_timestamp: platformPostTimestamp,
       author_username: authorUsername,
@@ -134,3 +212,4 @@ serve(async (req) => {
     );
   }
 });
+
