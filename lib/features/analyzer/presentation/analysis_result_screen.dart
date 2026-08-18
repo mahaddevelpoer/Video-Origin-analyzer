@@ -124,7 +124,6 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
   }
 
   String _getBeginnerSummary() {
-    final platform = widget.result.platformName;
     final inter = widget.result.possibleIntermediatePlatform;
     final earliestPlatform = _getEarliestVerifiedPlatform();
     final earliestTimestamp = _getEarliestVerifiedTimestamp();

@@ -307,7 +307,7 @@ class VideoAnalyzerEngine {
             allEvidence.add(
               EvidenceItem(
                 category: 'Timeline Evidence',
-                finding: 'Earliest verified timestamp points to ${earliestVerifiedPlatform.toUpperCase()}',
+                finding: 'Earliest verified timestamp points to ${earliestVerifiedPlatform!.toUpperCase()}',
                 strength: EvidenceStrength.strong,
                 scoreContribution: 25,
                 technicalExplanation:
