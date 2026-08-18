@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_origin_analyzer/data/local/daily_usage_service.dart';
 import 'package:video_origin_analyzer/data/models/evidence_item.dart';
 import 'package:video_origin_analyzer/data/services/local_ocr_service.dart';
+import 'package:video_origin_analyzer/data/utils/link_timestamp_resolver.dart';
 import 'package:video_origin_analyzer/data/utils/instagram_timestamp_decoder.dart';
 import 'package:video_origin_analyzer/data/utils/tiktok_timestamp_decoder.dart';
 import 'package:video_origin_analyzer/data/utils/url_platform_detector.dart';
@@ -111,6 +112,46 @@ void main() {
       expect(result.platformId, 'instagram');
       expect(result.possibleIntermediatePlatform, 'WhatsApp');
       expect(result.intermediateReason, contains('Aggressive compression'));
+    });
+
+    test('Prefers earliest verified timestamp platform when technical evidence is otherwise weak', () {
+      final engine = ForensicScoringEngine();
+
+      final result = engine.evaluate(
+        allEvidence: const [],
+        possibleIntermediatePlatform: null,
+        intermediateReason: null,
+        technicalDetails: {
+          'Container': 'MP4',
+          'Earliest Verified Platform': 'instagram',
+          'Earliest Verified Timestamp': '2026-08-04T12:00:00.000Z',
+        },
+      );
+
+      expect(result.platformId, 'instagram');
+      expect(result.confidence >= 35, true);
+    });
+  });
+
+  group('LinkTimestampResolver Tests', () {
+    test('Resolves Instagram link to exact timestamp', () {
+      const url = 'https://www.instagram.com/reel/Dbmx219TVIR/?utm_source=ig_web_copy_link';
+      final result = LinkTimestampResolver.resolve(url);
+
+      expect(result.supported, true);
+      expect(result.platform, DetectedPlatform.instagram);
+      expect(result.hasExactTimestamp, true);
+      expect(result.exactTimestampIso, contains('2026-08-04'));
+    });
+
+    test('Resolves TikTok link to exact timestamp', () {
+      const url = 'https://www.tiktok.com/@tiktok/video/7106594312292453678?is_from_webapp=1';
+      final result = LinkTimestampResolver.resolve(url);
+
+      expect(result.supported, true);
+      expect(result.platform, DetectedPlatform.tiktok);
+      expect(result.hasExactTimestamp, true);
+      expect(result.exactTimestampIso, contains('2022-06'));
     });
   });
 

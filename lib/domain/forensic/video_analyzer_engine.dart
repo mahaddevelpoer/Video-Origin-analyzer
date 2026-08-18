@@ -135,18 +135,20 @@ class VideoAnalyzerEngine {
 
     if (_onlineSearchService != null) {
       try {
-        onlineSearchResult = await _onlineSearchService.performVisualSearch(
+        final rawSearchResult = await _onlineSearchService.performVisualSearch(
           payload,
           ocrQuery: ocrQuery,
         );
 
-        if (onlineSearchResult.isSuccess && onlineSearchResult.matches.isNotEmpty) {
-          final enrichedMatches = <OnlineMatchItem>[];
+        if (rawSearchResult.isSuccess && rawSearchResult.matches.isNotEmpty) {
+          String? earliestVerifiedPlatform;
+          String? earliestVerifiedTimestamp;
+          DateTime? earliestVerifiedDate;
 
-          for (final match in onlineSearchResult.matches) {
+          Future<SocialCrawlPostEvidence?> resolvePostEvidence(OnlineMatchItem match) async {
             SocialCrawlPostEvidence? postEvidence;
 
-            // 1. INSTAGRAM SHORTCODE DECODER: Mathematical Snowflake extraction (0 API credits, 100% accurate)
+            // 1. Exact platform timestamp decoders for supported public platforms
             if (match.classifiedPlatform == 'instagram') {
               final decodedTimestamp = InstagramTimestampDecoder.decodeToIsoString(match.link);
               if (decodedTimestamp != null) {
@@ -157,10 +159,7 @@ class VideoAnalyzerEngine {
                   retrievedAt: DateTime.now().toUtc().toIso8601String(),
                 );
               }
-            }
-
-            // 2. TIKTOK SNOWFLAKE DECODER: Mathematical (video_id >> 32) extraction (0 API credits, 100% accurate)
-            if (match.classifiedPlatform == 'tiktok') {
+            } else if (match.classifiedPlatform == 'tiktok') {
               final decodedTimestamp = TikTokTimestampDecoder.decodeToIsoString(match.link);
               if (decodedTimestamp != null) {
                 postEvidence = SocialCrawlPostEvidence(
@@ -172,7 +171,7 @@ class VideoAnalyzerEngine {
               }
             }
 
-            // 3. Fallback/Optional: Fetch proxy engagement metadata if available
+            // 2. Fallback/Optional: Fetch proxy engagement metadata if available
             if (postEvidence == null &&
                 (match.classifiedPlatform == 'instagram' ||
                     match.classifiedPlatform == 'tiktok' ||
@@ -185,47 +184,84 @@ class VideoAnalyzerEngine {
               } catch (_) {}
             }
 
-            final enrichedMatch = OnlineMatchItem(
-              position: match.position,
-              title: match.title,
-              link: match.link,
-              domain: match.domain,
-              classifiedPlatform: match.classifiedPlatform,
-              thumbnail: match.thumbnail,
-              source: match.source,
-              matchType: match.matchType,
-              date: match.date,
-              dateConfidence: match.dateConfidence,
-              snippet: match.snippet,
-              ocrQuery: match.ocrQuery,
-              platformEvidence: postEvidence,
-            );
-            enrichedMatches.add(enrichedMatch);
+            return postEvidence;
+          }
 
-            if (postEvidence != null) {
-              final platformCap = match.classifiedPlatform.toUpperCase();
-              final sourceDesc = match.classifiedPlatform == 'instagram'
-                  ? 'Instagram Snowflake ID decoded'
-                  : match.classifiedPlatform == 'tiktok'
-                      ? 'TikTok Snowflake ID decoded (video_id >> 32)'
-                      : 'YouTube Data API v3 verified';
-              allEvidence.add(
-                EvidenceItem(
-                  category: 'Platform Post Evidence',
-                  finding: '$platformCap public post timestamp verified (${postEvidence.platformPostTimestamp ?? "Decoded"})',
-                  strength: EvidenceStrength.strong,
-                  scoreContribution: 20,
-                  technicalExplanation:
-                      '$sourceDesc: Published ${postEvidence.platformPostTimestamp ?? "N/A"}. Exact verified platform timestamp.',
-                ),
+          Future<List<OnlineMatchItem>> enrichMatches(List<OnlineMatchItem> matches) async {
+            final enrichedMatches = <OnlineMatchItem>[];
+
+            for (final match in matches) {
+              final postEvidence = await resolvePostEvidence(match);
+
+              if (postEvidence != null && postEvidence.platformPostTimestamp != null) {
+                final parsed = DateTime.tryParse(postEvidence.platformPostTimestamp!);
+                if (parsed != null &&
+                    (earliestVerifiedDate == null || parsed.isBefore(earliestVerifiedDate!))) {
+                  earliestVerifiedDate = parsed;
+                  earliestVerifiedPlatform = match.classifiedPlatform;
+                  earliestVerifiedTimestamp = postEvidence.platformPostTimestamp;
+                }
+              }
+
+              final enrichedMatch = OnlineMatchItem(
+                position: match.position,
+                title: match.title,
+                link: match.link,
+                domain: match.domain,
+                classifiedPlatform: match.classifiedPlatform,
+                thumbnail: match.thumbnail,
+                source: match.source,
+                matchType: match.matchType,
+                date: match.date,
+                dateConfidence: match.dateConfidence,
+                snippet: match.snippet,
+                ocrQuery: match.ocrQuery,
+                platformEvidence: postEvidence,
               );
+              enrichedMatches.add(enrichedMatch);
+
+              if (postEvidence != null) {
+                final platformCap = match.classifiedPlatform.toUpperCase();
+                final sourceDesc = match.classifiedPlatform == 'instagram'
+                    ? 'Instagram Snowflake ID decoded'
+                    : match.classifiedPlatform == 'tiktok'
+                        ? 'TikTok Snowflake ID decoded (video_id >> 32)'
+                        : 'YouTube public metadata verified';
+                allEvidence.add(
+                  EvidenceItem(
+                    category: 'Platform Post Evidence',
+                    finding: '$platformCap public post timestamp verified (${postEvidence.platformPostTimestamp ?? "Decoded"})',
+                    strength: EvidenceStrength.strong,
+                    scoreContribution: 20,
+                    technicalExplanation:
+                        '$sourceDesc: Published ${postEvidence.platformPostTimestamp ?? "N/A"}. Exact verified platform timestamp.',
+                  ),
+                );
+              }
             }
+
+            return enrichedMatches;
+          }
+
+          final exactMatches = rawSearchResult.matches.where((m) => m.matchType == 'exact_match').toList();
+          final fallbackMatches = rawSearchResult.matches.where((m) => m.matchType != 'exact_match').toList();
+
+          List<OnlineMatchItem> enrichedMatches = [];
+          if (exactMatches.isNotEmpty) {
+            final enrichedExactMatches = await enrichMatches(exactMatches);
+            enrichedMatches.addAll(enrichedExactMatches);
+
+            if (earliestVerifiedDate == null && fallbackMatches.isNotEmpty) {
+              enrichedMatches.addAll(await enrichMatches(fallbackMatches));
+            }
+          } else {
+            enrichedMatches = await enrichMatches(rawSearchResult.matches);
           }
 
           onlineSearchResult = OnlineSearchResult(
-            status: onlineSearchResult.status,
-            totalMatches: onlineSearchResult.totalMatches,
-            summary: onlineSearchResult.summary,
+            status: rawSearchResult.status,
+            totalMatches: rawSearchResult.totalMatches,
+            summary: rawSearchResult.summary,
             matches: enrichedMatches,
           );
 
@@ -263,6 +299,19 @@ class VideoAnalyzerEngine {
                 scoreContribution: (summary['youtube']! * 15).clamp(15, 30),
                 technicalExplanation:
                     'Visual search and OCR proxy identified matching content hosted on YouTube domains.',
+              ),
+            );
+          }
+
+          if (earliestVerifiedPlatform != null && earliestVerifiedTimestamp != null) {
+            allEvidence.add(
+              EvidenceItem(
+                category: 'Timeline Evidence',
+                finding: 'Earliest verified timestamp points to ${earliestVerifiedPlatform.toUpperCase()}',
+                strength: EvidenceStrength.strong,
+                scoreContribution: 25,
+                technicalExplanation:
+                    'The oldest verified public post timestamp was used as the strongest origin clue.',
               ),
             );
           }
@@ -305,6 +354,36 @@ class VideoAnalyzerEngine {
       'Audio Sample Rate': '${audioResult.sampleRateHz} Hz',
       'Audio Channels': audioResult.channels == 2 ? 'Stereo' : 'Mono',
       'File Size': fingerprintResult.fileSizeFormatted,
+      if (onlineSearchResult != null && onlineSearchResult.isSuccess && onlineSearchResult.matches.isNotEmpty)
+        'Exact Matches Checked': '${onlineSearchResult.matches.where((m) => m.matchType == 'exact_match').length}',
+      if (onlineSearchResult != null && onlineSearchResult.isSuccess && onlineSearchResult.matches.isNotEmpty)
+        'Search Matches Checked': '${onlineSearchResult.matches.length}',
+      if (onlineSearchResult != null &&
+          onlineSearchResult.isSuccess &&
+          onlineSearchResult.matches.any((m) => m.platformEvidence?.platformPostTimestamp != null))
+        'Earliest Verified Platform': onlineSearchResult.matches
+            .where((m) => m.platformEvidence?.platformPostTimestamp != null)
+            .reduce((a, b) {
+              final aDate = DateTime.tryParse(a.platformEvidence!.platformPostTimestamp!);
+              final bDate = DateTime.tryParse(b.platformEvidence!.platformPostTimestamp!);
+              if (aDate == null) return b;
+              if (bDate == null) return a;
+              return aDate.isBefore(bDate) ? a : b;
+            })
+            .classifiedPlatform,
+      if (onlineSearchResult != null &&
+          onlineSearchResult.isSuccess &&
+          onlineSearchResult.matches.any((m) => m.platformEvidence?.platformPostTimestamp != null))
+        'Earliest Verified Timestamp': onlineSearchResult.matches
+            .where((m) => m.platformEvidence?.platformPostTimestamp != null)
+            .map((m) => m.platformEvidence!.platformPostTimestamp!)
+            .reduce((a, b) {
+              final aDate = DateTime.tryParse(a);
+              final bDate = DateTime.tryParse(b);
+              if (aDate == null) return b;
+              if (bDate == null) return a;
+              return aDate.isBefore(bDate) ? a : b;
+            }),
       if (onlineSearchResult != null && onlineSearchResult.isSuccess)
         'Online Matches': '${onlineSearchResult.totalMatches} matches found',
     };

@@ -48,6 +48,15 @@ class ForensicScoringEngine {
       scores[platformId] = total;
     });
 
+    final earliestVerifiedPlatform = technicalDetails['Earliest Verified Platform'] as String?;
+    final earliestVerifiedTimestamp = technicalDetails['Earliest Verified Timestamp'] as String?;
+    if (earliestVerifiedPlatform != null &&
+        earliestVerifiedTimestamp != null &&
+        scores.containsKey(earliestVerifiedPlatform)) {
+      scores[earliestVerifiedPlatform] =
+          (scores[earliestVerifiedPlatform]! + 45).clamp(0, 100);
+    }
+
     // Determine top original platform candidate
     String bestPlatformId = 'unknown';
     int maxScore = 0;
