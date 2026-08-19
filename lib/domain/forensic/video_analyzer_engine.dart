@@ -42,6 +42,7 @@ class VideoAnalyzerEngine {
   /// Runs multi-signal local video origin analysis + local OCR + online visual/search evidence fusion.
   Future<PlatformResult> analyzeVideo({
     required InputVideoPayload payload,
+    bool enableOcrSearch = false,
     Function(AnalysisStage stage)? onStageChanged,
   }) async {
     final List<EvidenceItem> allEvidence = [];
@@ -97,24 +98,34 @@ class VideoAnalyzerEngine {
     try {
       final frames = await _frameExtractor.extractRepresentativeFrames(payload);
       if (frames.isNotEmpty) {
-        final ocrRes = await _ocrService.processFrameText(frames.first.base64Jpeg);
-        if (ocrRes.hasSearchableContent) {
-          if (ocrRes.detectedUsernames.isNotEmpty) {
-            ocrQuery = ocrRes.detectedUsernames.first;
-          } else if (ocrRes.detectedHashtags.isNotEmpty) {
-            ocrQuery = ocrRes.detectedHashtags.first;
-          } else if (ocrRes.uniquePhrases.isNotEmpty) {
-            ocrQuery = ocrRes.uniquePhrases.first;
+        final ocrResults = <OcrExtractionResult>[];
+        for (final frame in frames) {
+          final result = await _ocrService.processFrameText(frame.base64Jpeg);
+          if (result.hasSearchableContent) ocrResults.add(result);
+        }
+        if (ocrResults.isNotEmpty) {
+          final bestOcr = ocrResults.first;
+          for (final result in ocrResults) {
+            if (result.detectedUsernames.isNotEmpty) {
+              ocrQuery = result.detectedUsernames.first;
+              break;
+            }
+            if (ocrQuery == null && result.detectedHashtags.isNotEmpty) {
+              ocrQuery = result.detectedHashtags.first;
+            }
+            if (ocrQuery == null && result.uniquePhrases.isNotEmpty) {
+              ocrQuery = result.uniquePhrases.first;
+            }
           }
 
           allEvidence.add(
             EvidenceItem(
               category: 'Text/OCR Evidence',
-              finding: 'Local frame text detected (${ocrRes.cleanedText.length > 50 ? "${ocrRes.cleanedText.substring(0, 50)}..." : ocrRes.cleanedText})',
+              finding: 'Text detected across ${ocrResults.length} selected frame(s) (${bestOcr.cleanedText.length > 50 ? "${bestOcr.cleanedText.substring(0, 50)}..." : bestOcr.cleanedText})',
               strength: EvidenceStrength.moderate,
               scoreContribution: 15,
               technicalExplanation:
-                  'Local frame OCR identified overlay text/captions for targeted web investigation.',
+                  'On-device multilingual OCR identified overlay text/captions. Online OCR search is only enabled when the Pro option is selected.',
             ),
           );
         }
@@ -137,7 +148,7 @@ class VideoAnalyzerEngine {
       try {
         final rawSearchResult = await _onlineSearchService.performVisualSearch(
           payload,
-          ocrQuery: ocrQuery,
+          ocrQuery: enableOcrSearch ? ocrQuery : null,
         );
 
         if (rawSearchResult.isSuccess && rawSearchResult.matches.isNotEmpty) {

@@ -41,7 +41,7 @@ void main() async {
   ]);
 
   final prefs = results[0] as SharedPreferences;
-  subscriptionService.attachAccountSync(prefs);
+  subscriptionService.attachAccountSync();
   await subscriptionService.updateSubscriptionStatus();
 
   runApp(

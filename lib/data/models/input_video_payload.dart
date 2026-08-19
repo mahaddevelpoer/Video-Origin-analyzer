@@ -25,6 +25,9 @@ class InputVideoPayload {
   final String? path;
   final Uint8List? bytes;
   final CropRegion cropRegion;
+  final int analysisWindowStartMs;
+  final int analysisWindowDurationMs;
+  final List<int> selectedFrameTimesMs;
 
   const InputVideoPayload({
     required this.name,
@@ -32,6 +35,9 @@ class InputVideoPayload {
     this.path,
     this.bytes,
     this.cropRegion = CropRegion.full,
+    this.analysisWindowStartMs = 0,
+    this.analysisWindowDurationMs = 15000,
+    this.selectedFrameTimesMs = const [],
   });
 
   File? get file => (path != null && !kIsWeb) ? File(path!) : null;

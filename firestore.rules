@@ -1,0 +1,38 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /accounts/{userId} {
+      allow read, write: if request.auth != null
+        && request.auth.uid == userId
+        && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
+    // Device quota records use a hashed fingerprint as the document ID.
+    // Anonymous Firebase Auth is required before the app can access them.
+    match /device_accounts/{deviceId} {
+      function isAnonymous() {
+        return request.auth != null
+          && request.auth.token.firebase.sign_in_provider == 'anonymous';
+      }
+
+      function allowedFields() {
+        return request.resource.data.keys().hasOnly([
+          'fingerprintHash', 'ipHash', 'userId', 'lastSeenAt',
+          'usageDate', 'freeAnalysesUsed', 'updatedAt',
+          'proActive', 'proProductId', 'proSyncedAt'
+        ]);
+      }
+
+      allow read: if isAnonymous()
+        && resource.data.fingerprintHash == deviceId;
+      allow create, update: if isAnonymous()
+        && request.resource.data.fingerprintHash == deviceId
+        && allowedFields()
+        && (!request.resource.data.keys().hasAny(['freeAnalysesUsed'])
+          || (request.resource.data.freeAnalysesUsed is int
+            && request.resource.data.freeAnalysesUsed >= 0
+            && request.resource.data.freeAnalysesUsed <= 2));
+    }
+  }
+}

@@ -68,7 +68,7 @@ class PrivacyScreen extends StatelessWidget {
               _buildPrivacyPoint(
                 title: '3. No Permanent Database / No Cloud Storage',
                 description:
-                    'This application deliberately contains NO Cloud Firestore, NO Realtime Database, NO Firebase Storage, and NO custom server storage backend. All analysis history remains strictly saved in local device storage.',
+                    'Analysis history remains local. To prevent free-trial resets after app storage is cleared, the app stores a hashed device fingerprint, a hashed network IP, daily quota, and RevenueCat entitlement status in Firebase Firestore. Raw IP addresses, raw hardware identifiers, videos, and thumbnails are not stored.',
               ),
               _buildPrivacyPoint(
                 title: '4. Authentication & Licensing',

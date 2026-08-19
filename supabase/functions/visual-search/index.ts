@@ -15,6 +15,7 @@ interface RequestPayload {
   image_base64?: string;
   image_url?: string;
   max_results?: number;
+  ocr_query?: string;
 }
 
 interface VisualMatch {
@@ -102,7 +103,7 @@ serve(async (req: Request) => {
 
     // 2. Parse payload
     const body: RequestPayload = await req.json().catch(() => ({}));
-    const { image_base64, image_url, max_results = 15 } = body;
+    const { image_base64, image_url, max_results = 15, ocr_query } = body;
 
     if (!image_base64 && !image_url) {
       return new Response(
@@ -233,6 +234,35 @@ serve(async (req: Request) => {
       });
 
       count++;
+    }
+
+    // OCR search is an optional Pro path. It supplements visual matches with
+    // indexed social/video pages and is never treated as an exact image match.
+    if (ocr_query && ocr_query.trim().length >= 2 && matches.length < max_results) {
+      const query = `${ocr_query.trim()} video (site:tiktok.com OR site:instagram.com OR site:youtube.com)`;
+      const ocrUrl = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(query)}&num=${Math.min(10, max_results - matches.length)}&api_key=${encodeURIComponent(serpApiKey)}`;
+      const ocrResponse = await fetch(ocrUrl);
+      if (ocrResponse.ok) {
+        const ocrData = await ocrResponse.json();
+        for (const item of ocrData.organic_results || []) {
+          if (matches.length >= max_results) break;
+          const link = item.link || "";
+          if (!link || matches.some((match) => match.link === link)) continue;
+          const classified = classifyDomain(link);
+          summaryCounts[classified]++;
+          matches.push({
+            position: matches.length + 1,
+            title: item.title || "OCR-related video result",
+            link,
+            domain: extractDomain(link),
+            classified_platform: classified,
+            thumbnail: item.thumbnail,
+            source: item.source || "OCR web search",
+            match_type: "ocr_search",
+            date: item.date,
+          });
+        }
+      }
     }
 
     return new Response(

@@ -85,6 +85,7 @@ class AnalysisSession {
   bool adSlot1Shown;
   bool adSlot2Shown;
   bool historySaved;
+  bool ocrSearchEnabled;
   String? errorMessage;
 
   AnalysisSession({
@@ -97,6 +98,7 @@ class AnalysisSession {
     this.adSlot1Shown = false,
     this.adSlot2Shown = false,
     this.historySaved = false,
+    this.ocrSearchEnabled = false,
     this.errorMessage,
   });
 }

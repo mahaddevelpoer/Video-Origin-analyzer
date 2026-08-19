@@ -23,6 +23,10 @@ class FrameExtractionResult {
 /// Service for extracting authentic video frame screenshots for visual search.
 /// Extracts actual frames using video_thumbnail on devices/files.
 class FrameExtractorService {
+  Uint8List cropPreview(Uint8List bytes, CropRegion cropRegion) {
+    return _cropJpeg(bytes, payloadCrop: cropRegion);
+  }
+
   /// Extracts authentic representative frame screenshots (Center/Middle, Beginning, Ending).
   Future<List<FrameExtractionResult>> extractRepresentativeFrames(
     InputVideoPayload payload,
@@ -42,17 +46,19 @@ class FrameExtractorService {
       }
 
       if (videoPath != null && videoPath.isNotEmpty && !kIsWeb) {
-        // 1. Center / Middle Frame (timeMs: 2500 - 50% through video)
-        final middle = await _extractRealFrame(videoPath, FramePosition.middle, timeMs: 3000, cropRegion: payload.cropRegion);
-        if (middle != null) results.add(middle);
-
-        // 2. Beginning Frame (timeMs: 1000)
-        final beginning = await _extractRealFrame(videoPath, FramePosition.beginning, timeMs: 1000, cropRegion: payload.cropRegion);
-        if (beginning != null) results.add(beginning);
-
-        // 3. Ending Frame (timeMs: 6000)
-        final ending = await _extractRealFrame(videoPath, FramePosition.ending, timeMs: 6000, cropRegion: payload.cropRegion);
-        if (ending != null) results.add(ending);
+        final times = payload.selectedFrameTimesMs.isNotEmpty
+            ? payload.selectedFrameTimesMs.take(3).toList()
+            : _defaultFrameTimes(payload);
+        final positions = [FramePosition.beginning, FramePosition.middle, FramePosition.ending];
+        for (var i = 0; i < times.length; i++) {
+          final frame = await _extractRealFrame(
+            videoPath,
+            positions[i],
+            timeMs: times[i],
+            cropRegion: payload.cropRegion,
+          );
+          if (frame != null) results.add(frame);
+        }
       }
     } catch (e) {
       debugPrint('Real frame extraction error: $e');
@@ -71,6 +77,13 @@ class FrameExtractorService {
     }
 
     return results;
+  }
+
+  List<int> _defaultFrameTimes(InputVideoPayload payload) {
+    final start = payload.analysisWindowStartMs;
+    final duration = payload.analysisWindowDurationMs.clamp(1000, 15000).toInt();
+    final endOffset = duration > 1000 ? duration - 1000 : duration ~/ 2;
+    return [start + 1000, start + duration ~/ 2, start + endOffset];
   }
 
   Future<FrameExtractionResult?> _extractRealFrame(

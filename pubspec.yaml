@@ -40,6 +40,7 @@ dependencies:
   firebase_auth: ^5.5.1
   cloud_firestore: ^5.6.5
   device_info_plus: ^11.3.3
+  android_id: ^0.5.2+1
   google_sign_in: ^6.3.0
   sign_in_with_apple: ^6.1.4
 
@@ -61,6 +62,7 @@ dependencies:
   google_fonts: ^6.2.1
   crypto: ^3.0.6
   image: ^4.8.0
+  google_mlkit_text_recognition: ^0.17.1
 
   # Report Export & Sharing
   pdf: ^3.11.3

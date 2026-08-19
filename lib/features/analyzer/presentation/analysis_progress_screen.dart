@@ -48,6 +48,7 @@ class _AnalysisProgressScreenState extends ConsumerState<AnalysisProgressScreen>
 
       final result = await engine.analyzeVideo(
         payload: widget.session.videoPayload,
+        enableOcrSearch: widget.session.ocrSearchEnabled,
         onStageChanged: (stage) {
           if (mounted) {
             setState(() {

@@ -1,5 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:path_provider/path_provider.dart';
 
 class OcrExtractionResult {
   final String rawText;
@@ -36,26 +39,7 @@ class LocalOcrService {
       if (base64Jpeg.isEmpty) return OcrExtractionResult.empty();
 
       final bytes = base64Decode(base64Jpeg);
-      final rawStrings = <String>[];
-
-      // Local heuristic text pattern scanner over frame binary payload
-      final buffer = StringBuffer();
-      for (int i = 0; i < bytes.length; i++) {
-        final b = bytes[i];
-        if ((b >= 32 && b <= 126) || b == 10 || b == 13) {
-          buffer.writeCharCode(b);
-        } else {
-          if (buffer.length > 5) {
-            rawStrings.add(buffer.toString());
-          }
-          buffer.clear();
-        }
-      }
-      if (buffer.length > 5) {
-        rawStrings.add(buffer.toString());
-      }
-
-      final joinedRaw = rawStrings.join(' ');
+      final joinedRaw = kIsWeb ? _fallbackBinaryScan(bytes) : await _recognizeWithMlKit(bytes);
       final cleaned = cleanOcrText(joinedRaw);
 
       final usernames = extractUsernames(cleaned);
@@ -78,12 +62,58 @@ class LocalOcrService {
     }
   }
 
+  Future<String> _recognizeWithMlKit(List<int> bytes) async {
+    final directory = await getTemporaryDirectory();
+    final file = File('${directory.path}/ocr_${DateTime.now().microsecondsSinceEpoch}.jpg');
+    await file.writeAsBytes(bytes, flush: true);
+    final recognized = <String>[];
+
+    try {
+      // ML Kit provides separate on-device models for these script families.
+      // Running each model keeps OCR useful for mixed-language social clips.
+      for (final script in [
+        TextRecognitionScript.latin,
+        TextRecognitionScript.devanagari,
+        TextRecognitionScript.chinese,
+        TextRecognitionScript.japanese,
+        TextRecognitionScript.korean,
+      ]) {
+        final recognizer = TextRecognizer(script: script);
+        try {
+          final result = await recognizer.processImage(InputImage.fromFilePath(file.path));
+          if (result.text.trim().isNotEmpty) recognized.add(result.text.trim());
+        } finally {
+          await recognizer.close();
+        }
+      }
+    } finally {
+      if (await file.exists()) await file.delete();
+    }
+
+    return recognized.join(' ');
+  }
+
+  String _fallbackBinaryScan(List<int> bytes) {
+    final rawStrings = <String>[];
+    final buffer = StringBuffer();
+    for (final byte in bytes) {
+      if ((byte >= 32 && byte <= 126) || byte == 10 || byte == 13) {
+        buffer.writeCharCode(byte);
+      } else {
+        if (buffer.length > 5) rawStrings.add(buffer.toString());
+        buffer.clear();
+      }
+    }
+    if (buffer.length > 5) rawStrings.add(buffer.toString());
+    return rawStrings.join(' ');
+  }
+
   /// Cleans raw OCR text by removing noise, random symbols, and duplicated words.
   String cleanOcrText(String raw) {
     if (raw.isEmpty) return '';
 
     String text = raw.replaceAll(RegExp(r'[\r\n\t]+'), ' ');
-    text = text.replaceAll(RegExp(r'[^\w\s@#\.\:\/\-\_]'), ' ');
+    text = text.replaceAll(RegExp(r'[^\p{L}\p{N}\s@#\.\:\/\-\_]', unicode: true), ' ');
 
     final words = text.split(RegExp(r'\s+'));
     final cleanedWords = <String>[];
@@ -109,12 +139,12 @@ class LocalOcrService {
   }
 
   List<String> extractUsernames(String text) {
-    final matches = RegExp(r'@[a-zA-Z0-9_\.]{3,30}').allMatches(text);
+    final matches = RegExp(r'@[\p{L}\p{N}_\.]{3,30}', unicode: true).allMatches(text);
     return matches.map((m) => m.group(0)!).toSet().toList();
   }
 
   List<String> extractHashtags(String text) {
-    final matches = RegExp(r'#[a-zA-Z0-9_\.]{3,30}').allMatches(text);
+    final matches = RegExp(r'#[\p{L}\p{N}_\.]{3,30}', unicode: true).allMatches(text);
     return matches.map((m) => m.group(0)!).toSet().toList();
   }
 

@@ -9,6 +9,7 @@ import '../../../data/models/input_video_payload.dart';
 import '../../../data/utils/url_platform_detector.dart';
 import '../../../data/utils/link_timestamp_resolver.dart';
 import 'analysis_progress_screen.dart';
+import 'frame_selection_screen.dart';
 
 class VideoPickerScreen extends ConsumerStatefulWidget {
   const VideoPickerScreen({super.key});
@@ -150,6 +151,13 @@ class _VideoPickerScreenState extends ConsumerState<VideoPickerScreen> {
 
   void _startAnalysis() {
     if (_selectedPayload == null) return;
+
+    if (!kIsWeb && _selectedPayload!.path != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => FrameSelectionScreen(payload: _selectedPayload!)),
+      );
+      return;
+    }
 
     final session = AnalysisSession(
       sessionId: DateTime.now().millisecondsSinceEpoch.toString(),

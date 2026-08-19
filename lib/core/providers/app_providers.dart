@@ -16,7 +16,7 @@ final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
 
 final dailyUsageServiceProvider = ChangeNotifierProvider<DailyUsageService>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
-  return DailyUsageService(prefs, remoteSync: FirebaseAccountSyncService(prefs));
+  return DailyUsageService(prefs, remoteSync: FirebaseAccountSyncService());
 });
 
 final localHistoryRepositoryProvider = Provider<LocalHistoryRepository>((ref) {
@@ -24,7 +24,7 @@ final localHistoryRepositoryProvider = Provider<LocalHistoryRepository>((ref) {
   return LocalHistoryRepository(prefs);
 });
 
-final subscriptionServiceProvider = Provider<SubscriptionService>((ref) {
+final subscriptionServiceProvider = ChangeNotifierProvider<SubscriptionService>((ref) {
   return SubscriptionService();
 });
 

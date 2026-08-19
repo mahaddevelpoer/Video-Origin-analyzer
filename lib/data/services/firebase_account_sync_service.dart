@@ -2,30 +2,27 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:crypto/crypto.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:android_id/android_id.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 
 /// Syncs quota and entitlement state across signed-in sessions and devices.
 /// Sensitive identifiers are hashed before they leave the device.
 class FirebaseAccountSyncService {
-  static const _deviceKey = 'persistent_device_id';
-  final SharedPreferences _prefs;
   final FirebaseFirestore? _firestore;
   final FirebaseAuth? _auth;
   final DeviceInfoPlugin _deviceInfo = DeviceInfoPlugin();
+  static const AndroidId _androidId = AndroidId();
 
-  FirebaseAccountSyncService(
-    this._prefs, {
+  FirebaseAccountSyncService({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
   })  : _firestore = firestore ?? (Firebase.apps.isNotEmpty ? FirebaseFirestore.instance : null),
         _auth = auth ?? (Firebase.apps.isNotEmpty ? FirebaseAuth.instance : null);
 
   Future<String> _fingerprint() async {
-    final localId = _prefs.getString(_deviceKey) ?? '';
     var details = 'unknown';
     try {
       if (kIsWeb) {
@@ -33,7 +30,8 @@ class FirebaseAccountSyncService {
         details = '${info.browserName}|${info.platform}|${info.userAgent}';
       } else if (defaultTargetPlatform == TargetPlatform.android) {
         final info = await _deviceInfo.androidInfo;
-        details = '${info.id}|${info.model}|${info.manufacturer}';
+        final androidId = await _androidId.getId();
+        details = '${androidId ?? info.id}|${info.model}|${info.manufacturer}';
       } else if (defaultTargetPlatform == TargetPlatform.iOS) {
         final info = await _deviceInfo.iosInfo;
         details = '${info.identifierForVendor}|${info.model}|${info.systemVersion}';
@@ -42,7 +40,9 @@ class FirebaseAccountSyncService {
         details = info.data.toString();
       }
     } catch (_) {}
-    return _hash('$localId|$details');
+    // Do not include the locally generated installation ID: clearing app
+    // storage must not create a new quota identity on the same device.
+    return _hash('$defaultTargetPlatform|$details');
   }
 
   Future<String?> _ipHash() async {
@@ -61,9 +61,20 @@ class FirebaseAccountSyncService {
   Future<DocumentReference<Map<String, dynamic>>> _accountRef() async {
     final firestore = _firestore;
     if (firestore == null) throw StateError('Firebase is not initialized');
+    await _ensureFirebaseIdentity();
     final user = _auth?.currentUser;
-    if (user != null) return firestore.collection('accounts').doc(user.uid);
+    if (user != null && !user.isAnonymous) return firestore.collection('accounts').doc(user.uid);
     return firestore.collection('device_accounts').doc(await _fingerprint());
+  }
+
+  Future<void> _ensureFirebaseIdentity() async {
+    if (_auth?.currentUser == null) {
+      try {
+        await _auth?.signInAnonymously();
+      } catch (e) {
+        debugPrint('Anonymous Firebase identity unavailable: $e');
+      }
+    }
   }
 
   Future<Map<String, dynamic>> _identityFields() async {
@@ -78,7 +89,12 @@ class FirebaseAccountSyncService {
 
   Future<int?> restoreUsage({required String date}) async {
     try {
-      final snapshot = await (await _accountRef()).get();
+      final ref = await _accountRef();
+      final snapshot = await ref.get();
+      await ref.set({
+        ...await _identityFields(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
       final data = snapshot.data();
       if (data == null || data['usageDate'] != date) return null;
       return (data['freeAnalysesUsed'] as num?)?.toInt();
