@@ -72,7 +72,7 @@ class DailyUsageService extends ChangeNotifier {
   Future<void> _restoreRemoteUsage() async {
     if (_remoteSync == null) return;
     final today = _getTodayString();
-    final remoteCount = await _remoteSync!.restoreUsage(date: today);
+    final remoteCount = await _remoteSync.restoreUsage(date: today);
     if (remoteCount != null && remoteCount > getUsageCount()) {
       await _prefs.setString(_keyUsageDate, today);
       await _prefs.setInt(_keyUsageCount, remoteCount);
