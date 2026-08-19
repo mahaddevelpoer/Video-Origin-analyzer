@@ -43,15 +43,15 @@ class FrameExtractorService {
 
       if (videoPath != null && videoPath.isNotEmpty && !kIsWeb) {
         // 1. Center / Middle Frame (timeMs: 2500 - 50% through video)
-        final middle = await _extractRealFrame(videoPath, FramePosition.middle, timeMs: 3000);
+        final middle = await _extractRealFrame(videoPath, FramePosition.middle, timeMs: 3000, cropRegion: payload.cropRegion);
         if (middle != null) results.add(middle);
 
         // 2. Beginning Frame (timeMs: 1000)
-        final beginning = await _extractRealFrame(videoPath, FramePosition.beginning, timeMs: 1000);
+        final beginning = await _extractRealFrame(videoPath, FramePosition.beginning, timeMs: 1000, cropRegion: payload.cropRegion);
         if (beginning != null) results.add(beginning);
 
         // 3. Ending Frame (timeMs: 6000)
-        final ending = await _extractRealFrame(videoPath, FramePosition.ending, timeMs: 6000);
+        final ending = await _extractRealFrame(videoPath, FramePosition.ending, timeMs: 6000, cropRegion: payload.cropRegion);
         if (ending != null) results.add(ending);
       }
     } catch (e) {
@@ -77,6 +77,7 @@ class FrameExtractorService {
     String videoPath,
     FramePosition position, {
     int timeMs = 0,
+    CropRegion cropRegion = CropRegion.full,
   }) async {
     try {
       final uint8list = await VideoThumbnail.thumbnailData(
@@ -88,7 +89,8 @@ class FrameExtractorService {
       );
 
       if (uint8list != null && uint8list.isNotEmpty) {
-        final b64 = base64Encode(uint8list);
+        final croppedBytes = _cropJpeg(uint8list, payloadCrop: cropRegion);
+        final b64 = base64Encode(croppedBytes);
         debugPrint('Successfully extracted REAL frame screenshot ($position, ${uint8list.length} bytes)');
         return FrameExtractionResult(
           position: position,
@@ -100,6 +102,26 @@ class FrameExtractorService {
       debugPrint('Failed to extract real frame at $timeMs ms: $e');
     }
     return null;
+  }
+
+  Uint8List _cropJpeg(Uint8List bytes, {CropRegion? payloadCrop}) {
+    final crop = payloadCrop ?? CropRegion.full;
+    if (crop.isFull) return bytes;
+    final decoded = img.decodeImage(bytes);
+    if (decoded == null) return bytes;
+
+    final left = (decoded.width * crop.left).round().clamp(0, decoded.width - 1).toInt();
+    final top = (decoded.height * crop.top).round().clamp(0, decoded.height - 1).toInt();
+    final right = (decoded.width * crop.right).round().clamp(left + 1, decoded.width).toInt();
+    final bottom = (decoded.height * crop.bottom).round().clamp(top + 1, decoded.height).toInt();
+    final cropped = img.copyCrop(
+      decoded,
+      x: left,
+      y: top,
+      width: right - left,
+      height: bottom - top,
+    );
+    return Uint8List.fromList(img.encodeJpg(cropped, quality: 82));
   }
 
   FrameExtractionResult _generateMinimalFrame(

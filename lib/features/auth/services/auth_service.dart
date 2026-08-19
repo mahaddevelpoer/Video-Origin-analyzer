@@ -4,17 +4,20 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../../../core/config/firebase_options.dart';
 import '../../subscription/services/subscription_service.dart';
+import '../../../data/local/daily_usage_service.dart';
 
 /// Modular Authentication Service handling Firebase Authentication & RevenueCat User ID Sync.
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final SubscriptionService _subscriptionService;
+  final DailyUsageService _usageService;
 
-  AuthService(this._subscriptionService) {
+  AuthService(this._subscriptionService, this._usageService) {
     // Listen to Firebase auth changes & keep RevenueCat synchronized
     _auth.authStateChanges().listen((User? user) async {
       if (user != null) {
         await _subscriptionService.identifyUser(user.uid);
+        await _usageService.syncToCurrentAccount();
       } else {
         await _subscriptionService.resetUser();
       }

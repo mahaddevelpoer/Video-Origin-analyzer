@@ -78,22 +78,33 @@ class OnlineVisualSearchService {
       }
 
       if (accumulatedMatches.isNotEmpty) {
+        final uniqueMatches = <String, OnlineMatchItem>{};
+        for (final match in accumulatedMatches) {
+          final key = match.link.isNotEmpty ? match.link : '${match.title}|${match.classifiedPlatform}';
+          final existing = uniqueMatches[key];
+          if (existing == null || (match.matchType == 'exact_match' && existing.matchType != 'exact_match')) {
+            uniqueMatches[key] = match;
+          }
+        }
+        final matches = uniqueMatches.values.toList();
         return OnlineSearchResult(
           status: 'success',
-          totalMatches: accumulatedMatches.length,
-          summary: platformFrequency,
-          matches: accumulatedMatches,
+          totalMatches: matches.length,
+          summary: {
+            for (final platform in platformFrequency.keys)
+              platform: matches.where((m) => m.classifiedPlatform == platform).length,
+          },
+          matches: matches,
         );
-      }
-
-      if (!lastResult.isSuccess && (lastResult.errorCode == 'HTTP_404' || lastResult.errorCode == 'CONNECTION_FAILED')) {
-        return _getFallbackDemoSearchResult(payload, ocrQuery: ocrQuery);
       }
 
       return lastResult;
     } catch (e) {
       debugPrint('OnlineVisualSearchService Exception: $e');
-      return _getFallbackDemoSearchResult(payload, ocrQuery: ocrQuery);
+      return OnlineSearchResult.failure(
+        message: 'Visual search could not be verified. Local forensic analysis is still available.',
+        code: 'VISUAL_SEARCH_UNAVAILABLE',
+      );
     }
   }
 
@@ -145,6 +156,7 @@ class OnlineVisualSearchService {
     }
   }
 
+  @Deprecated('Do not use unverified demo matches as forensic evidence.')
   OnlineSearchResult _getFallbackDemoSearchResult(InputVideoPayload payload, {String? ocrQuery}) {
     final lowerName = payload.name.toLowerCase();
     String detectedPlatform = 'tiktok';

@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/local/daily_usage_service.dart';
 import '../../data/local/local_history_repository.dart';
 import '../../data/services/frame_extractor_service.dart';
+import '../../data/services/firebase_account_sync_service.dart';
 import '../../data/services/online_visual_search_service.dart';
 import '../../domain/forensic/video_analyzer_engine.dart';
 import '../../features/auth/services/auth_service.dart';
@@ -15,7 +16,7 @@ final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
 
 final dailyUsageServiceProvider = ChangeNotifierProvider<DailyUsageService>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
-  return DailyUsageService(prefs);
+  return DailyUsageService(prefs, remoteSync: FirebaseAccountSyncService(prefs));
 });
 
 final localHistoryRepositoryProvider = Provider<LocalHistoryRepository>((ref) {
@@ -29,7 +30,8 @@ final subscriptionServiceProvider = Provider<SubscriptionService>((ref) {
 
 final authServiceProvider = Provider<AuthService>((ref) {
   final subService = ref.watch(subscriptionServiceProvider);
-  return AuthService(subService);
+  final usageService = ref.watch(dailyUsageServiceProvider);
+  return AuthService(subService, usageService);
 });
 
 final frameExtractorServiceProvider = Provider<FrameExtractorService>((ref) {

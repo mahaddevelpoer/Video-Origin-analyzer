@@ -72,6 +72,7 @@ class TimelineAnalyzer {
     // Fallback: Check for search engine discovery dates
     final datedMatches = onlineResult.matches
         .where((m) => m.date != null && m.date!.isNotEmpty && m.classifiedPlatform != 'other')
+        .where((m) => DateTime.tryParse(m.date!) != null)
         .toList();
 
     if (datedMatches.isEmpty) {
@@ -88,7 +89,7 @@ class TimelineAnalyzer {
       return TimelineAnalysisResult(evidence: evidence);
     }
 
-    datedMatches.sort((a, b) => a.position.compareTo(b.position));
+    datedMatches.sort((a, b) => DateTime.parse(a.date!).compareTo(DateTime.parse(b.date!)));
     final earliest = datedMatches.first;
 
     String platformName = earliest.classifiedPlatform.toUpperCase();
@@ -100,12 +101,10 @@ class TimelineAnalyzer {
       EvidenceItem(
         category: 'Timeline Evidence',
         finding: '$platformName has the earliest discovered search-indexed date (${earliest.date})',
-        strength: earliest.dateConfidence == DateConfidence.high
-            ? EvidenceStrength.strong
-            : EvidenceStrength.moderate,
-        scoreContribution: earliest.dateConfidence == DateConfidence.high ? 15 : 10,
+        strength: EvidenceStrength.weak,
+        scoreContribution: 3,
         technicalExplanation:
-            'Indexed date evidence indicates $platformName content was discovered online earlier than other candidates.',
+            'This is a search-index date, not a verified platform upload timestamp. It is shown as weak supporting context only.',
       ),
     );
 

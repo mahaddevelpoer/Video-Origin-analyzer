@@ -232,7 +232,7 @@ class VideoAnalyzerEngine {
                     category: 'Platform Post Evidence',
                     finding: '$platformCap public post timestamp verified (${postEvidence.platformPostTimestamp ?? "Decoded"})',
                     strength: EvidenceStrength.strong,
-                    scoreContribution: 20,
+                    scoreContribution: 28,
                     technicalExplanation:
                         '$sourceDesc: Published ${postEvidence.platformPostTimestamp ?? "N/A"}. Exact verified platform timestamp.',
                   ),
@@ -272,7 +272,7 @@ class VideoAnalyzerEngine {
                 category: 'Online Evidence',
                 finding: 'Matching online evidence detected on Instagram (${summary['instagram']} matches)',
                 strength: EvidenceStrength.moderate,
-                scoreContribution: (summary['instagram']! * 15).clamp(15, 30),
+                scoreContribution: (summary['instagram']! * 4).clamp(2, 8),
                 technicalExplanation:
                     'Visual search and OCR proxy identified matching content hosted on Instagram domains.',
               ),
@@ -284,7 +284,7 @@ class VideoAnalyzerEngine {
                 category: 'Online Evidence',
                 finding: 'Matching online evidence detected on TikTok (${summary['tiktok']} matches)',
                 strength: EvidenceStrength.moderate,
-                scoreContribution: (summary['tiktok']! * 15).clamp(15, 30),
+                scoreContribution: (summary['tiktok']! * 4).clamp(2, 8),
                 technicalExplanation:
                     'Visual search and OCR proxy identified matching content hosted on TikTok domains.',
               ),
@@ -296,7 +296,7 @@ class VideoAnalyzerEngine {
                 category: 'Online Evidence',
                 finding: 'Matching online evidence detected on YouTube (${summary['youtube']} matches)',
                 strength: EvidenceStrength.moderate,
-                scoreContribution: (summary['youtube']! * 15).clamp(15, 30),
+                scoreContribution: (summary['youtube']! * 4).clamp(2, 8),
                 technicalExplanation:
                     'Visual search and OCR proxy identified matching content hosted on YouTube domains.',
               ),
@@ -309,7 +309,7 @@ class VideoAnalyzerEngine {
                 category: 'Timeline Evidence',
                 finding: 'Earliest verified timestamp points to ${earliestVerifiedPlatform!.toUpperCase()}',
                 strength: EvidenceStrength.strong,
-                scoreContribution: 25,
+                scoreContribution: 32,
                 technicalExplanation:
                     'The oldest verified public post timestamp was used as the strongest origin clue.',
               ),

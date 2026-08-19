@@ -53,8 +53,11 @@ class ForensicScoringEngine {
     if (earliestVerifiedPlatform != null &&
         earliestVerifiedTimestamp != null &&
         scores.containsKey(earliestVerifiedPlatform)) {
+      // A verified platform-post timestamp is strong evidence, but it still
+      // proves publication on that platform, not authorship. Keep it below
+      // absolute certainty and let independent local evidence break ties.
       scores[earliestVerifiedPlatform] =
-          (scores[earliestVerifiedPlatform]! + 45).clamp(0, 100);
+          (scores[earliestVerifiedPlatform]! + 32).clamp(0, 100);
     }
 
     // Determine top original platform candidate
@@ -97,8 +100,12 @@ class ForensicScoringEngine {
       orElse: () => SignatureDatabase.tiktok,
     );
 
-    // Calculate raw confidence (capped at 92% to respect honesty rules)
-    int confidence = (maxScore + 30).clamp(35, 92);
+    // Confidence depends on both evidence volume and separation from the
+    // runner-up. A close race must remain inconclusive even with many related
+    // visual results.
+    final margin = maxScore - runnerUpScore;
+    int confidence = (38 + (maxScore * 0.35).round() + (margin * 0.45).round()).clamp(35, 92).toInt();
+    if (margin < 10) confidence = confidence.clamp(35, 58).toInt();
 
     final List<EvidenceItem> primaryEvidence = [];
     final List<EvidenceItem> conflictingEvidence = [];
@@ -108,7 +115,7 @@ class ForensicScoringEngine {
         primaryEvidence.add(item);
       } else if (runnerUpScore > 15 &&
           runnerUpId.isNotEmpty &&
-          item.finding.toLowerCase().contains(runnerUpId)) {
+          item.finding.toLowerCase().contains(runnerUpId.toLowerCase())) {
         conflictingEvidence.add(item);
       } else {
         primaryEvidence.add(item);

@@ -8,6 +8,7 @@ import '../../../core/config/app_config.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../data/models/analysis_session.dart';
 import '../../../data/models/evidence_item.dart';
+import '../../../data/models/online_search_result.dart';
 import '../../../data/models/platform_result.dart';
 import '../../home/presentation/home_screen.dart';
 
@@ -141,6 +142,66 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
     }
 
     return 'The app found clues in file structure, metadata, and visuals to estimate the likely source platform.';
+  }
+
+  Future<void> _showMatchDetails(OnlineMatchItem match) async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Visual match details'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (match.thumbnail != null && match.thumbnail!.isNotEmpty)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.network(
+                    match.thumbnail!,
+                    width: double.infinity,
+                    height: 190,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      height: 190,
+                      color: AppColors.lightBackground,
+                      alignment: Alignment.center,
+                      child: const Text('Thumbnail could not be loaded.'),
+                    ),
+                  ),
+                )
+              else
+                Container(
+                  height: 120,
+                  width: double.infinity,
+                  color: AppColors.lightBackground,
+                  alignment: Alignment.center,
+                  child: const Text('No thumbnail supplied by the search provider.'),
+                ),
+              const SizedBox(height: 12),
+              Text(match.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              Text('${match.classifiedPlatform.toUpperCase()} • ${match.matchType == 'exact_match' ? 'Exact match' : 'Related visual result'}'),
+              if (match.snippet != null) ...[
+                const SizedBox(height: 8),
+                Text(match.snippet!, style: const TextStyle(color: AppColors.textMuted)),
+              ],
+              const SizedBox(height: 10),
+              const Text('This preview is loaded from the provider thumbnail URL. The app does not download or save it.'),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
+          if (match.link.isNotEmpty)
+            ElevatedButton.icon(
+              onPressed: () => Share.share(match.link),
+              icon: const Icon(Icons.link),
+              label: const Text('Copy source link'),
+            ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -495,24 +556,13 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
                                         ),
                                       ),
                                     ),
-                                  if (match.link.isNotEmpty)
-                                    InkWell(
-                                      onTap: () {
-                                        Share.share('Source Match URL: ${match.link}');
-                                      },
-                                      child: const Padding(
-                                        padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                        child: Text(
-                                          '[View Link]',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.bold,
-                                            color: AppColors.youtubeRed,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
                                 ],
+                              ),
+                              const SizedBox(height: 8),
+                              OutlinedButton.icon(
+                                onPressed: () => _showMatchDetails(match),
+                                icon: const Icon(Icons.visibility_outlined, size: 16),
+                                label: const Text('View details'),
                               ),
                               if (postEv != null) ...[
                                 const SizedBox(height: 6),

@@ -101,6 +101,53 @@ class _VideoPickerScreenState extends ConsumerState<VideoPickerScreen> {
     }
   }
 
+  Future<void> _chooseCropRegion() async {
+    final selected = await showModalBottomSheet<CropRegion>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('Crop video before visual search', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              const Text('The app will take its 3 screenshots from this selected area.', style: TextStyle(color: AppColors.textMuted)),
+              const SizedBox(height: 16),
+              _cropChoice(context, 'Full frame', 'Use the complete video frame.', CropRegion.full),
+              _cropChoice(context, 'Center square', 'Remove side borders and focus on the subject.', const CropRegion(left: 0.12, top: 0, right: 0.88, bottom: 1)),
+              _cropChoice(context, 'Center portrait', 'Focus on the central 9:16 content area.', const CropRegion(left: 0.22, top: 0, right: 0.78, bottom: 1)),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (selected != null && mounted && _selectedPayload != null) {
+      setState(() {
+        final payload = _selectedPayload!;
+        _selectedPayload = InputVideoPayload(
+          name: payload.name,
+          sizeInBytes: payload.sizeInBytes,
+          path: payload.path,
+          bytes: payload.bytes,
+          cropRegion: selected,
+        );
+      });
+    }
+  }
+
+  Widget _cropChoice(BuildContext context, String title, String subtitle, CropRegion region) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: const Icon(Icons.crop, color: AppColors.youtubeRed),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: Text(subtitle),
+      onTap: () => Navigator.of(context).pop(region),
+    );
+  }
+
   void _startAnalysis() {
     if (_selectedPayload == null) return;
 
@@ -170,6 +217,15 @@ class _VideoPickerScreenState extends ConsumerState<VideoPickerScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
+              ],
+
+              if (_selectedPayload != null) ...[
+                OutlinedButton.icon(
+                  onPressed: _chooseCropRegion,
+                  icon: const Icon(Icons.crop),
+                  label: Text(_selectedPayload!.cropRegion.isFull ? 'Crop video for visual search (optional)' : 'Change visual-search crop'),
+                ),
+                const SizedBox(height: 12),
               ],
 
               // Clean File Upload Box

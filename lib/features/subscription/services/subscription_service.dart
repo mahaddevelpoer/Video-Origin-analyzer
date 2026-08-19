@@ -1,12 +1,15 @@
 import 'package:flutter/foundation.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import '../../../core/config/revenuecat_config.dart';
+import '../../../data/services/firebase_account_sync_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// RevenueCat Subscription Management Service
 class SubscriptionService {
   bool _isInitialized = false;
   bool _isProActive = false;
   Offerings? _currentOfferings;
+  FirebaseAccountSyncService? _accountSync;
 
   bool get isProActive => _isProActive;
   Offerings? get currentOfferings => _currentOfferings;
@@ -26,6 +29,10 @@ class SubscriptionService {
     } catch (e) {
       debugPrint('RevenueCat Init Exception: $e');
     }
+  }
+
+  void attachAccountSync(SharedPreferences prefs) {
+    _accountSync ??= FirebaseAccountSyncService(prefs);
   }
 
   /// Syncs RevenueCat identity with Firebase UID.
@@ -102,5 +109,9 @@ class SubscriptionService {
   void _checkEntitlement(CustomerInfo info) {
     final entitlement = info.entitlements.all[RevenueCatConfig.entitlementId];
     _isProActive = entitlement != null && entitlement.isActive;
+    _accountSync?.syncEntitlement(
+      isPro: _isProActive,
+      productId: entitlement?.productIdentifier,
+    );
   }
 }

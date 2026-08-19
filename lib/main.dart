@@ -22,7 +22,8 @@ void main() async {
     debugPrint('AdMob Init Notice: $e');
     return InitializationStatus({});
   });
-  final subFuture = SubscriptionService().initialize().catchError((e) {
+  final subscriptionService = SubscriptionService();
+  final subFuture = subscriptionService.initialize().catchError((e) {
     debugPrint('RevenueCat Init Notice: $e');
   });
   final firebaseFuture = Firebase.initializeApp(
@@ -40,11 +41,14 @@ void main() async {
   ]);
 
   final prefs = results[0] as SharedPreferences;
+  subscriptionService.attachAccountSync(prefs);
+  await subscriptionService.updateSubscriptionStatus();
 
   runApp(
     ProviderScope(
       overrides: [
         sharedPreferencesProvider.overrideWithValue(prefs),
+        subscriptionServiceProvider.overrideWithValue(subscriptionService),
       ],
       child: const VideoOriginAnalyzerApp(),
     ),

@@ -25,6 +25,8 @@ interface VisualMatch {
   classified_platform: "instagram" | "tiktok" | "youtube" | "facebook" | "other";
   thumbnail?: string;
   source?: string;
+  match_type?: "exact_match" | "visual_match";
+  date?: string;
 }
 
 function classifyDomain(
@@ -189,7 +191,13 @@ serve(async (req: Request) => {
     }
 
     const lensData = await lensRes.json();
-    const rawMatches = lensData.visual_matches || [];
+    // SerpApi separates pages that contain the exact image from merely related
+    // visual results. Never promote a related result to an exact match.
+    const exactMatches = lensData.exact_matches || lensData.exact_match || [];
+    const rawMatches = [
+      ...exactMatches.map((item: any) => ({ ...item, __matchType: "exact_match" })),
+      ...(lensData.visual_matches || []).map((item: any) => ({ ...item, __matchType: "visual_match" })),
+    ];
 
     // 5. Parse and classify domain matches
     const matches: VisualMatch[] = [];
@@ -220,6 +228,8 @@ serve(async (req: Request) => {
         classified_platform: classified,
         thumbnail: item.thumbnail || item.source_icon,
         source: item.source,
+        match_type: item.__matchType,
+        date: item.date || item.snippet_date,
       });
 
       count++;
