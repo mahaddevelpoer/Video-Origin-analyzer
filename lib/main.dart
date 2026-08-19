@@ -48,7 +48,7 @@ void main() async {
     ProviderScope(
       overrides: [
         sharedPreferencesProvider.overrideWithValue(prefs),
-        subscriptionServiceProvider.overrideWithValue(subscriptionService),
+        subscriptionServiceProvider.overrideWith((ref) => subscriptionService),
       ],
       child: const VideoOriginAnalyzerApp(),
     ),

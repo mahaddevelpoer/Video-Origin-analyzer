@@ -73,7 +73,7 @@ class LocalOcrService {
       // Running each model keeps OCR useful for mixed-language social clips.
       for (final script in [
         TextRecognitionScript.latin,
-        TextRecognitionScript.devanagari,
+        TextRecognitionScript.devanagiri,
         TextRecognitionScript.chinese,
         TextRecognitionScript.japanese,
         TextRecognitionScript.korean,
@@ -113,7 +113,8 @@ class LocalOcrService {
     if (raw.isEmpty) return '';
 
     String text = raw.replaceAll(RegExp(r'[\r\n\t]+'), ' ');
-    text = text.replaceAll(RegExp(r'[^\p{L}\p{N}\s@#\.\:\/\-\_]', unicode: true), ' ');
+    // Remove control characters only so non-Latin scripts remain intact.
+    text = text.replaceAll(RegExp(r'[\x00-\x1F\x7F]'), ' ');
 
     final words = text.split(RegExp(r'\s+'));
     final cleanedWords = <String>[];
@@ -139,12 +140,12 @@ class LocalOcrService {
   }
 
   List<String> extractUsernames(String text) {
-    final matches = RegExp(r'@[\p{L}\p{N}_\.]{3,30}', unicode: true).allMatches(text);
+    final matches = RegExp(r'@[^\s@#]{3,30}').allMatches(text);
     return matches.map((m) => m.group(0)!).toSet().toList();
   }
 
   List<String> extractHashtags(String text) {
-    final matches = RegExp(r'#[\p{L}\p{N}_\.]{3,30}', unicode: true).allMatches(text);
+    final matches = RegExp(r'#[^\s@#]{3,30}').allMatches(text);
     return matches.map((m) => m.group(0)!).toSet().toList();
   }
 
