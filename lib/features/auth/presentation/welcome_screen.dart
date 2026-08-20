@@ -133,7 +133,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                 child: _buildFeatureRow(
                   icon: Icons.security,
                   title: 'Local-First Privacy',
-                  subtitle: 'Videos are processed 100% on your device. Never uploaded.',
+                  subtitle: 'Forensics run locally. Optional search uses selected frames only.',
                 ),
               ),
               const SizedBox(height: 14),

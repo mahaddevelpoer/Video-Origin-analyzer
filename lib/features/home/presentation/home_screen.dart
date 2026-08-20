@@ -354,7 +354,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Local-First Privacy: 100% on-device forensic analysis. Videos are never uploaded to any server.',
+                        'Local-first forensic analysis. Optional visual search sends only selected frames.',
                         style: TextStyle(fontSize: 12, color: AppColors.textMuted, height: 1.3),
                       ),
                     ),

@@ -16,5 +16,5 @@ class AppConfig {
       'It cannot guarantee the original source of every video, particularly when media has been edited, re-encoded, screen-recorded, or had metadata removed.';
 
   static const String privacyStatement =
-      'Your videos are analyzed locally on your device. Video files are not uploaded to any server or third-party cloud service for analysis.';
+      'Local forensic analysis runs on your device. Optional online visual search sends only selected representative frames through the search proxy; original video files are not uploaded.';
 }
