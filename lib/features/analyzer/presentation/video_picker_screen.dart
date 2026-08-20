@@ -191,8 +191,8 @@ class _VideoPickerScreenState extends ConsumerState<VideoPickerScreen> {
         title: const Text('Select Video'),
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -395,7 +395,7 @@ class _VideoPickerScreenState extends ConsumerState<VideoPickerScreen> {
                 ),
               ),
 
-              const Spacer(),
+              const SizedBox(height: 24),
 
               ElevatedButton(
                 onPressed: (_selectedPayload != null && canAnalyze && !_isPicking)
