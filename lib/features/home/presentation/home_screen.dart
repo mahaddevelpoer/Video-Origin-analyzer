@@ -4,6 +4,7 @@ import '../../../core/config/app_config.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/widgets/brand_mark.dart';
+import '../../../core/widgets/motion_reveal.dart';
 import '../../analyzer/presentation/video_picker_screen.dart';
 import '../../history/presentation/history_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
@@ -68,22 +69,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Developer Branding Header Bar
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: cardColor,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: theme.dividerColor),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x08000000),
-                      blurRadius: 8,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
+              MotionReveal(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: cardColor,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: theme.dividerColor),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x08000000),
+                        blurRadius: 8,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
                     const Icon(Icons.verified, color: AppColors.youtubeRed, size: 18),
                     const SizedBox(width: 10),
                     const Text(
@@ -102,30 +104,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                       ),
                     ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
 
               // Usage & Plan Status Card
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: cardColor,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: isPro ? AppColors.youtubeRed : theme.dividerColor,
-                    width: isPro ? 1.5 : 1,
-                  ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x0A000000),
-                      blurRadius: 10,
-                      offset: Offset(0, 4),
+              MotionReveal(
+                delay: const Duration(milliseconds: 80),
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: cardColor,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isPro ? AppColors.youtubeRed : theme.dividerColor,
+                      width: isPro ? 1.5 : 1,
                     ),
-                  ],
-                ),
-                child: Column(
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x0A000000),
+                        blurRadius: 10,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
@@ -220,13 +225,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ],
                     ],
                   ],
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
 
               // Primary Action: Analyze Video Card
-              GestureDetector(
-                onTap: canAnalyze
+              MotionReveal(
+                delay: const Duration(milliseconds: 160),
+                child: GestureDetector(
+                  onTap: canAnalyze
                     ? () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
@@ -239,7 +247,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           MaterialPageRoute(builder: (_) => const PaywallScreen()),
                         );
                       },
-                child: Container(
+                  child: Container(
                   padding: const EdgeInsets.all(28),
                   decoration: BoxDecoration(
                     color: AppColors.lightSurface,
@@ -294,13 +302,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     ],
                   ),
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
 
               // Secondary Quick Action Buttons
-              Row(
-                children: [
+              MotionReveal(
+                delay: const Duration(milliseconds: 230),
+                child: Row(
+                  children: [
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () {
@@ -324,7 +335,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       label: const Text('PRO PAYWALL'),
                     ),
                   ),
-                ],
+                  ],
+                ),
               ),
               const SizedBox(height: 24),
 

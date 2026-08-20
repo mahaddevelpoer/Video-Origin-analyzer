@@ -4,6 +4,7 @@ import '../../../core/config/app_config.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/widgets/brand_mark.dart';
+import '../../../core/widgets/motion_reveal.dart';
 import 'welcome_screen.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -43,25 +44,34 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Spacer(),
-              const BrandMark(size: 104),
+              const MotionReveal(
+                delay: Duration(milliseconds: 80),
+                child: BrandMark(size: 104),
+              ),
               const SizedBox(height: 24),
-              Text(
-                AppConfig.appName.toUpperCase(),
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.5,
-                  color: AppColors.textDark,
+              const MotionReveal(
+                delay: Duration(milliseconds: 180),
+                child: Text(
+                  AppConfig.appName,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.5,
+                    color: AppColors.textDark,
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'LOCAL FORENSIC MEDIA ORIGIN ANALYZER',
-                style: TextStyle(
-                  fontSize: 11,
-                  letterSpacing: 1.2,
-                  color: Color(0xFF159A86),
-                  fontWeight: FontWeight.bold,
+              const MotionReveal(
+                delay: Duration(milliseconds: 260),
+                child: Text(
+                  'LOCAL FORENSIC MEDIA ORIGIN ANALYZER',
+                  style: TextStyle(
+                    fontSize: 11,
+                    letterSpacing: 1.2,
+                    color: Color(0xFF159A86),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               const Spacer(),

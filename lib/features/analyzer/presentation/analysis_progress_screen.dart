@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/config/admob_config.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/providers/app_providers.dart';
+import '../../../core/widgets/motion_reveal.dart';
 import '../../../data/models/analysis_session.dart';
 import '../../../data/models/history_record.dart';
 import 'analysis_result_screen.dart';
@@ -132,13 +133,15 @@ class _AnalysisProgressScreenState extends ConsumerState<AnalysisProgressScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                'ANALYZING FILE: ${widget.session.videoPayload.name}',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.youtubeRed,
-                  letterSpacing: 0.5,
+              MotionReveal(
+                child: Text(
+                  'ANALYZING FILE: ${widget.session.videoPayload.name}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.youtubeRed,
+                    letterSpacing: 0.5,
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -164,49 +167,57 @@ class _AnalysisProgressScreenState extends ConsumerState<AnalysisProgressScreen>
                 ),
               ] else ...[
                 Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppColors.lightSurface,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.lightBorder),
-                    ),
-                    child: ListView.builder(
-                      itemCount: stages.length,
-                      itemBuilder: (context, index) {
-                        final stage = stages[index];
-                        final isDone = stage.index < _currentStage.index;
-                        final isCurrent = stage.index == _currentStage.index;
+                  child: MotionReveal(
+                    delay: const Duration(milliseconds: 100),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.lightSurface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.lightBorder),
+                      ),
+                      child: ListView.builder(
+                        itemCount: stages.length,
+                        itemBuilder: (context, index) {
+                          final stage = stages[index];
+                          final isDone = stage.index < _currentStage.index;
+                          final isCurrent = stage.index == _currentStage.index;
 
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Row(
-                            children: [
-                              if (isDone)
-                                const Icon(Icons.check_circle, color: AppColors.strengthStrong, size: 18)
-                              else if (isCurrent)
-                                const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.youtubeRed),
-                                )
-                              else
-                                const Icon(Icons.radio_button_unchecked, color: AppColors.textMuted, size: 18),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  stage.statusMessage,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: isDone || isCurrent ? AppColors.textDark : AppColors.textMuted,
-                                    fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                          return AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 220),
+                            switchInCurve: Curves.easeOut,
+                            child: Padding(
+                              key: ValueKey('${stage.name}-$isDone-$isCurrent'),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Row(
+                                children: [
+                                  if (isDone)
+                                    const Icon(Icons.check_circle, color: AppColors.strengthStrong, size: 18)
+                                  else if (isCurrent)
+                                    const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.youtubeRed),
+                                    )
+                                  else
+                                    const Icon(Icons.radio_button_unchecked, color: AppColors.textMuted, size: 18),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      stage.statusMessage,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: isDone || isCurrent ? AppColors.textDark : AppColors.textMuted,
+                                        fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                ],
                               ),
-                            ],
-                          ),
-                        );
-                      },
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),

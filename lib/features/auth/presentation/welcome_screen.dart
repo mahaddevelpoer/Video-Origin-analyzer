@@ -4,6 +4,7 @@ import '../../../core/config/app_config.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/widgets/brand_mark.dart';
+import '../../../core/widgets/motion_reveal.dart';
 import '../../home/presentation/home_screen.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
@@ -72,8 +73,9 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
             children: [
               const SizedBox(height: 12),
               // App Identity Header
-              Row(
-                children: [
+              MotionReveal(
+                child: Row(
+                  children: [
                   const BrandMark(size: 42),
                   const SizedBox(width: 12),
                   const Column(
@@ -96,52 +98,71 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                       ),
                     ],
                   ),
-                ],
+                  ],
+                ),
               ),
               const SizedBox(height: 24),
-              const Text(
-                'Local Video Origin & Forensic Analysis',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textDark,
-                  height: 1.2,
+              const MotionReveal(
+                delay: Duration(milliseconds: 90),
+                child: Text(
+                  'Local Video Origin & Forensic Analysis',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
+                    height: 1.2,
+                  ),
                 ),
               ),
               const SizedBox(height: 10),
-              const Text(
-                'Identify original social media platforms (TikTok, Instagram, YouTube, Snapchat, Facebook) and intermediate compression channels (WhatsApp) using multi-signal evidence analysis.',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppColors.textMuted,
-                  height: 1.4,
+              const MotionReveal(
+                delay: Duration(milliseconds: 140),
+                child: Text(
+                  'Identify original social media platforms (TikTok, Instagram, YouTube, Snapchat, Facebook) and intermediate compression channels (WhatsApp) using multi-signal evidence analysis.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textMuted,
+                    height: 1.4,
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
 
-              _buildFeatureRow(
-                icon: Icons.security,
-                title: 'Local-First Privacy',
-                subtitle: 'Videos are processed 100% on your device. Never uploaded.',
+              MotionReveal(
+                delay: const Duration(milliseconds: 200),
+                child: _buildFeatureRow(
+                  icon: Icons.security,
+                  title: 'Local-First Privacy',
+                  subtitle: 'Videos are processed 100% on your device. Never uploaded.',
+                ),
               ),
               const SizedBox(height: 14),
-              _buildFeatureRow(
-                icon: Icons.account_tree,
-                title: 'Multi-Signal Evidence',
-                subtitle: 'Metadata, codec profile, aspect ratio, audio & compression analysis.',
+              MotionReveal(
+                delay: const Duration(milliseconds: 250),
+                child: _buildFeatureRow(
+                  icon: Icons.account_tree,
+                  title: 'Multi-Signal Evidence',
+                  subtitle: 'Metadata, codec profile, aspect ratio, audio & compression analysis.',
+                ),
               ),
               const SizedBox(height: 14),
-              _buildFeatureRow(
-                icon: Icons.find_in_page,
-                title: 'Transparent Reporting',
-                subtitle: 'Clear evidence breakdown explaining why conclusions were reached.',
+              MotionReveal(
+                delay: const Duration(milliseconds: 300),
+                child: _buildFeatureRow(
+                  icon: Icons.find_in_page,
+                  title: 'Transparent Reporting',
+                  subtitle: 'Clear evidence breakdown explaining why conclusions were reached.',
+                ),
               ),
 
               const SizedBox(height: 28),
 
-              ElevatedButton(
-                onPressed: _handleGetStarted,
-                child: const Text('GET STARTED NOW'),
+              MotionReveal(
+                delay: const Duration(milliseconds: 360),
+                child: ElevatedButton(
+                  onPressed: _handleGetStarted,
+                  child: const Text('GET STARTED NOW'),
+                ),
               ),
               const SizedBox(height: 12),
 

@@ -6,6 +6,7 @@ import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/motion_reveal.dart';
 import '../../../data/models/analysis_session.dart';
 import '../../../data/models/evidence_item.dart';
 import '../../../data/models/online_search_result.dart';
@@ -243,11 +244,12 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
               // ==========================================
               // 1. BEGINNER-FRIENDLY HERO RESULT CARD
               // ==========================================
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 350),
-                curve: Curves.easeOut,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
+              MotionReveal(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 350),
+                  curve: Curves.easeOut,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
                   color: cardColor,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: AppColors.youtubeRed, width: 1.5),
@@ -259,7 +261,7 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
                     ),
                   ],
                 ),
-                child: Column(
+                  child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
@@ -345,6 +347,7 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
                       ),
                     ],
                   ],
+                  ),
                 ),
               ),
 

@@ -1,5 +1,10 @@
 # Video Origin Analyzer
 
+[![Flutter](https://img.shields.io/badge/Flutter-stable-02569B?logo=flutter&logoColor=white)](https://flutter.dev/)
+[![Firebase](https://img.shields.io/badge/Firebase-auth%20%2B%20Firestore-FFCA28?logo=firebase&logoColor=111111)](https://firebase.google.com/)
+[![RevenueCat](https://img.shields.io/badge/RevenueCat-Pro%20entitlements-6C47FF)](https://www.revenuecat.com/)
+[![Privacy](https://img.shields.io/badge/processing-local--first-159A86)](#privacy-and-configuration)
+
 Video Origin Analyzer is a privacy-first forensic assistant for investigating where a social video most likely originated. It combines local media signals, platform signatures, selected-frame visual search, OCR, timestamps, and transparent evidence reporting instead of presenting an unexplained guess.
 
 ## Product Goal
@@ -30,6 +35,57 @@ Help journalists, researchers, moderators, and everyday users distinguish an ori
 - `supabase/functions`: server-side visual search and social metadata integrations; provider secrets stay in Supabase secrets
 - `firestore.rules`: owner/device-scoped quota and subscription access rules
 - `assets/brand_mark.svg`: reusable forensic lens and video-frame brand mark
+
+### Evidence Pipeline
+
+```mermaid
+flowchart LR
+    A[Video file or public link] --> B[15-second timeline selection]
+    B --> C[Three representative frames]
+    C --> D[Local metadata and codec signals]
+    C --> E[Exact visual match search]
+    E --> F[Related visual search fallback]
+    D --> G[Platform evidence fusion]
+    F --> G
+    G --> H[Timestamp comparison]
+    H --> I[Beginner result]
+    I --> J[Intermediate evidence details]
+```
+
+### Trust and Monetization Flow
+
+```mermaid
+flowchart TD
+    U[User] --> L{Signed in?}
+    L -->|No| D[Hashed device and network continuity]
+    L -->|Yes| F[Firebase user account]
+    D --> Q[Free daily quota]
+    F --> Q
+    F --> R[RevenueCat entitlement]
+    R -->|Active Pro| P[Unlimited analysis and no ads]
+    R -->|Free| A[Daily limit and free interstitial policy]
+    Q --> A
+```
+
+### Decision Signals
+
+| Signal | Role | User-facing value |
+| --- | --- | --- |
+| Public timestamp | Earliest verified upload clue | Explains why a platform is considered older |
+| Exact visual match | Strong identity evidence | Separates the same video from merely similar posts |
+| Metadata and codec | Local forensic evidence | Works without uploading the original video |
+| OCR text | Context and discovery signal | Finds related posts in multiple scripts |
+| Compression trail | Repost/intermediate clue | Clarifies why the current copy may not be original |
+
+### Quality Targets
+
+| Area | Target behavior |
+| --- | --- |
+| Clarity | Beginner result first; scoring and raw evidence behind More Details |
+| Motion | Short, purposeful transitions with reduced-motion support |
+| Privacy | Raw videos, thumbnails, IPs, and hardware IDs are not persisted |
+| Monetization | Pro entitlement removes analysis limits and ad display |
+| Reliability | Exact-match-first search with timestamp cross-checking and fallbacks |
 
 ## Privacy and Configuration
 
