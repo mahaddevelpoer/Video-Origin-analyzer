@@ -11,6 +11,10 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final SubscriptionService _subscriptionService;
   final DailyUsageService _usageService;
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    serverClientId: kGoogleSignInWebClientId,
+  );
+  bool _googleSignInInProgress = false;
 
   AuthService(this._subscriptionService, this._usageService) {
     // Listen to Firebase auth changes & keep RevenueCat synchronized
@@ -84,19 +88,13 @@ class AuthService {
     }
   }
 
-  /// Google Sign In with Multi-Method Fallback
+  /// Google Sign In. Keep this as one guarded flow so Android does not open
+  /// the account chooser twice when OAuth configuration reports an error.
   Future<UserCredential?> signInWithGoogle() async {
+    if (_googleSignInInProgress) return null;
+    _googleSignInInProgress = true;
     try {
-      GoogleSignInAccount? googleUser;
-      try {
-        // Try with configured serverClientId first
-        googleUser = await GoogleSignIn(
-          serverClientId: kGoogleSignInWebClientId,
-        ).signIn();
-      } catch (e) {
-        debugPrint('GoogleSignIn with serverClientId error ($e), trying standard init...');
-        googleUser = await GoogleSignIn().signIn();
-      }
+      final googleUser = await _googleSignIn.signIn();
 
       if (googleUser == null) {
         // User explicitly cancelled dialog, return gracefully
@@ -116,16 +114,9 @@ class AuthService {
       return cred;
     } catch (e) {
       debugPrint('Google Sign In Catch Error: $e');
-      // Graceful local fallback session so user is never blocked
-      try {
-        final anonCred = await _auth.signInAnonymously();
-        if (anonCred.user != null) {
-          await _subscriptionService.identifyUser(anonCred.user!.uid);
-        }
-        return anonCred;
-      } catch (_) {
-        return null;
-      }
+      return null;
+    } finally {
+      _googleSignInInProgress = false;
     }
   }
 
@@ -175,7 +166,7 @@ class AuthService {
   /// Sign Out
   Future<void> signOut() async {
     try {
-      await GoogleSignIn().signOut();
+      await _googleSignIn.signOut();
     } catch (_) {}
     try {
       await _auth.signOut();

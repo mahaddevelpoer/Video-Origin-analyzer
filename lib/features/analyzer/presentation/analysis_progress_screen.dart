@@ -39,7 +39,7 @@ class _AnalysisProgressScreenState extends ConsumerState<AnalysisProgressScreen>
     // Interstitial ads shown for Free Tier users only (0 Ads for Pro users).
     if (!isPro && !widget.session.adSlot1Shown) {
       widget.session.adSlot1Shown = true;
-      await _adService.showInterstitialAdIfAvailable();
+      await _adService.showInterstitialAdIfAvailable(isPro: isPro);
     }
 
     try {
@@ -63,7 +63,7 @@ class _AnalysisProgressScreenState extends ConsumerState<AnalysisProgressScreen>
 
       if (!isPro && !widget.session.adSlot2Shown) {
         widget.session.adSlot2Shown = true;
-        await _adService.showInterstitialAdIfAvailable();
+        await _adService.showInterstitialAdIfAvailable(isPro: isPro);
       }
 
       final dailyUsageService = ref.read(dailyUsageServiceProvider);

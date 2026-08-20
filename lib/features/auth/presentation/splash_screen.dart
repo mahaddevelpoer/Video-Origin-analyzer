@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/providers/app_providers.dart';
+import '../../../core/widgets/brand_mark.dart';
 import 'welcome_screen.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -42,26 +43,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Spacer(),
-              Container(
-                width: 90,
-                height: 90,
-                decoration: BoxDecoration(
-                  color: AppColors.youtubeRed,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x25FF0000),
-                      blurRadius: 20,
-                      offset: Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.play_arrow,
-                  size: 54,
-                  color: Colors.white,
-                ),
-              ),
+              const BrandMark(size: 104),
               const SizedBox(height: 24),
               Text(
                 AppConfig.appName.toUpperCase(),
@@ -78,7 +60,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                 style: TextStyle(
                   fontSize: 11,
                   letterSpacing: 1.2,
-                  color: AppColors.youtubeRed,
+                  color: Color(0xFF159A86),
                   fontWeight: FontWeight.bold,
                 ),
               ),

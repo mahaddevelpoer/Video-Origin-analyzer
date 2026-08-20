@@ -65,8 +65,8 @@ class InterstitialAdService {
     );
   }
 
-  Future<void> showInterstitialAdIfAvailable() async {
-    if (kIsWeb || _interstitialAd == null) return;
+  Future<void> showInterstitialAdIfAvailable({required bool isPro}) async {
+    if (kIsWeb || isPro || _interstitialAd == null) return;
 
     _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
       onAdDismissedFullScreenContent: (ad) {

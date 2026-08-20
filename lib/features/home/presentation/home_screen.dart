@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/providers/app_providers.dart';
+import '../../../core/widgets/brand_mark.dart';
 import '../../analyzer/presentation/video_picker_screen.dart';
 import '../../history/presentation/history_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
@@ -33,14 +34,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       appBar: AppBar(
         title: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: AppColors.youtubeRed,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: const Icon(Icons.play_arrow, color: Colors.white, size: 18),
-            ),
+            const BrandMark(size: 32, compact: true),
             const SizedBox(width: 10),
             Text(
               AppConfig.appName,

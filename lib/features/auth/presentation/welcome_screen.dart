@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/providers/app_providers.dart';
+import '../../../core/widgets/brand_mark.dart';
 import '../../home/presentation/home_screen.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
@@ -33,7 +34,8 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
     setState(() => _isGoogleLoading = true);
     try {
       final authService = ref.read(authServiceProvider);
-      await authService.signInWithGoogle();
+      final credential = await authService.signInWithGoogle();
+      if (credential == null) return;
       final prefs = ref.read(sharedPreferencesProvider);
       await prefs.setBool('has_logged_in_before', true);
 
@@ -72,18 +74,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
               // App Identity Header
               Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.youtubeRed,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.play_arrow,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                  ),
+                  const BrandMark(size: 42),
                   const SizedBox(width: 12),
                   const Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

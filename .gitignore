@@ -43,3 +43,19 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local Firebase/Supabase tooling state
+.firebase/
+supabase/.temp/
+
+# Local environment and signing material
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+key.properties
+
+# Generated platform metadata
+.flutter-plugins
+.flutter-plugins-dependencies
