@@ -9,8 +9,8 @@ class MotionReveal extends StatefulWidget {
     super.key,
     required this.child,
     this.delay = Duration.zero,
-    this.duration = const Duration(milliseconds: 420),
-    this.offset = const Offset(0, 0.04),
+    this.duration = const Duration(milliseconds: 280),
+    this.offset = const Offset(0, 0.02),
   });
 
   final Widget child;
@@ -57,7 +57,7 @@ class _MotionRevealState extends State<MotionReveal>
       opacity: curved,
       child: SlideTransition(
         position: Tween<Offset>(begin: widget.offset, end: Offset.zero).animate(curved),
-        child: widget.child,
+        child: RepaintBoundary(child: widget.child),
       ),
     );
   }

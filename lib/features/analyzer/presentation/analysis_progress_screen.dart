@@ -183,11 +183,7 @@ class _AnalysisProgressScreenState extends ConsumerState<AnalysisProgressScreen>
                           final isDone = stage.index < _currentStage.index;
                           final isCurrent = stage.index == _currentStage.index;
 
-                          return AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 220),
-                            switchInCurve: Curves.easeOut,
-                            child: Padding(
-                              key: ValueKey('${stage.name}-$isDone-$isCurrent'),
+                          return Padding(
                               padding: const EdgeInsets.symmetric(vertical: 8),
                               child: Row(
                                 children: [
@@ -214,7 +210,6 @@ class _AnalysisProgressScreenState extends ConsumerState<AnalysisProgressScreen>
                                   ),
                                 ],
                               ),
-                            ),
                           );
                         },
                       ),

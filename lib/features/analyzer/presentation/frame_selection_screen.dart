@@ -25,11 +25,12 @@ class FrameSelectionScreen extends ConsumerStatefulWidget {
 class _FrameSelectionScreenState extends ConsumerState<FrameSelectionScreen> {
   VideoPlayerController? _controller;
   List<Uint8List?> _thumbnails = const [];
-  Set<int> _selectedIndexes = {0, 2, 4};
+  Set<int> _selectedIndexes = {0};
   int _clipDurationMs = 15000;
   int _startMs = 0;
   bool _loading = true;
   bool _ocrSearchEnabled = false;
+  bool _isPlaying = false;
 
   int get _videoDurationMs => _controller?.value.duration.inMilliseconds ?? _clipDurationMs;
   int get _maxStartMs => (_videoDurationMs - _clipDurationMs).clamp(0, 1 << 31).toInt();
@@ -50,6 +51,7 @@ class _FrameSelectionScreenState extends ConsumerState<FrameSelectionScreen> {
     try {
       await controller.initialize();
       _controller = controller;
+      controller.addListener(_handleVideoUpdate);
       final duration = controller.value.duration.inMilliseconds;
       _clipDurationMs = duration.clamp(1000, 15000).toInt();
       await _loadThumbnails();
@@ -65,18 +67,35 @@ class _FrameSelectionScreenState extends ConsumerState<FrameSelectionScreen> {
     return List<int>.generate(5, (index) => _startMs + (step * index).round());
   }
 
+  void _handleVideoUpdate() {
+    if (!mounted || _controller == null) return;
+    final playing = _controller!.value.isPlaying;
+    if (playing != _isPlaying) setState(() => _isPlaying = playing);
+  }
+
+  Future<void> _togglePlayback() async {
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) return;
+    if (controller.value.isPlaying) {
+      await controller.pause();
+    } else {
+      await controller.play();
+    }
+  }
+
   Future<void> _loadThumbnails() async {
     final path = widget.payload.path;
     if (path == null) return;
     if (mounted) setState(() => _loading = true);
     final results = <Uint8List?>[];
     for (final timeMs in _candidateTimesMs) {
+      final safeTimeMs = timeMs.clamp(0, (_videoDurationMs - 120).clamp(0, _videoDurationMs)).toInt();
       final thumbnail = await VideoThumbnail.thumbnailData(
         video: path,
         imageFormat: ImageFormat.JPEG,
         maxWidth: 420,
         quality: 82,
-        timeMs: timeMs,
+        timeMs: safeTimeMs,
       );
       results.add(thumbnail == null ? null : FrameExtractorService().cropPreview(thumbnail, widget.payload.cropRegion));
     }
@@ -89,8 +108,8 @@ class _FrameSelectionScreenState extends ConsumerState<FrameSelectionScreen> {
   }
 
   Future<void> _continue() async {
-    if (_selectedIndexes.length != 3) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select exactly 3 frames for the forensic search.')));
+    if (_selectedIndexes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select at least 1 frame for the forensic search.')));
       return;
     }
     final selectedTimes = _selectedIndexes.toList()..sort();
@@ -115,6 +134,7 @@ class _FrameSelectionScreenState extends ConsumerState<FrameSelectionScreen> {
 
   @override
   void dispose() {
+    _controller?.removeListener(_handleVideoUpdate);
     _controller?.dispose();
     super.dispose();
   }
@@ -138,7 +158,31 @@ class _FrameSelectionScreenState extends ConsumerState<FrameSelectionScreen> {
                     const Text('For long videos, choose up to 15 seconds where the important action appears.', style: TextStyle(color: AppColors.textMuted)),
                     if (_controller?.value.isInitialized == true) ...[
                       const SizedBox(height: 14),
-                      AspectRatio(aspectRatio: _controller!.value.aspectRatio, child: VideoPlayer(_controller!)),
+                      AspectRatio(
+                        aspectRatio: _controller!.value.aspectRatio,
+                        child: VideoPlayer(_controller!),
+                      ),
+                      Row(
+                        children: [
+                          IconButton(
+                            tooltip: _isPlaying ? 'Pause video' : 'Play video',
+                            onPressed: _togglePlayback,
+                            icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
+                          ),
+                          Expanded(
+                            child: VideoProgressIndicator(
+                              _controller!,
+                              allowScrubbing: true,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              colors: const VideoProgressColors(
+                                playedColor: AppColors.youtubeRed,
+                                bufferedColor: AppColors.lightBorder,
+                                backgroundColor: AppColors.lightBackground,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                     const SizedBox(height: 12),
                     Text('Start: ${(_startMs / 1000).toStringAsFixed(1)}s   Clip: ${(_clipDurationMs / 1000).toStringAsFixed(0)}s', style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -163,7 +207,7 @@ class _FrameSelectionScreenState extends ConsumerState<FrameSelectionScreen> {
                                   setState(() {
                                     _clipDurationMs = seconds * 1000;
                                     _startMs = _startMs.clamp(0, _maxStartMs).toInt();
-                                    _selectedIndexes = {0, 2, 4};
+                                    _selectedIndexes = {0};
                                   });
                                   _loadThumbnails();
                                 }
@@ -172,9 +216,9 @@ class _FrameSelectionScreenState extends ConsumerState<FrameSelectionScreen> {
                       }).toList(),
                     ),
                     const SizedBox(height: 24),
-                    const Text('2. Choose 3 cover frames', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const Text('2. Choose up to 3 search frames', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 6),
-                    Text('${_selectedIndexes.length}/3 selected. These exact frames will be sent to visual search.', style: const TextStyle(color: AppColors.textMuted)),
+                    Text('${_selectedIndexes.length}/3 selected. Choose 1, 2, or 3 frames.', style: const TextStyle(color: AppColors.textMuted)),
                     const SizedBox(height: 12),
                     GridView.builder(
                       shrinkWrap: true,
