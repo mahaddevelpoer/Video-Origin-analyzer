@@ -64,11 +64,15 @@ class TimelineAnalyzer {
       final postEv = earliestPost.platformEvidence!;
 
       String platformName = earliestPost.classifiedPlatform.toUpperCase();
-      if (earliestPost.classifiedPlatform == 'tiktok') platformName = 'TikTok';
-      if (earliestPost.classifiedPlatform == 'instagram')
+      if (earliestPost.classifiedPlatform == 'tiktok') {
+        platformName = 'TikTok';
+      }
+      if (earliestPost.classifiedPlatform == 'instagram') {
         platformName = 'Instagram';
-      if (earliestPost.classifiedPlatform == 'youtube')
+      }
+      if (earliestPost.classifiedPlatform == 'youtube') {
         platformName = 'YouTube';
+      }
 
       evidence.add(
         EvidenceItem(
