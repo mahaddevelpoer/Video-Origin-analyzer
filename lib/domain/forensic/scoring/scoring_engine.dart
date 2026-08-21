@@ -52,10 +52,12 @@ class ForensicScoringEngine {
         technicalDetails['Earliest Verified Platform'] as String?;
     final earliestVerifiedTimestamp =
         technicalDetails['Earliest Verified Timestamp'] as String?;
-    final exactTimestampVerified =
-        technicalDetails['Origin Verification Status'] ==
-        'earliest_verified_exact_match';
-    if (exactTimestampVerified &&
+    final originVerificationStatus =
+        technicalDetails['Origin Verification Status'] as String?;
+    final timestampVerified =
+        originVerificationStatus == 'earliest_verified_exact_match' ||
+        originVerificationStatus == 'earliest_verified_platform_timestamp';
+    if (timestampVerified &&
         earliestVerifiedPlatform != null &&
         earliestVerifiedTimestamp != null &&
         DateTime.tryParse(earliestVerifiedTimestamp) != null &&
@@ -66,6 +68,8 @@ class ForensicScoringEngine {
         possibleIntermediatePlatform: possibleIntermediatePlatform,
         intermediateReason: intermediateReason,
         technicalDetails: technicalDetails,
+        exactVisualMatch:
+            originVerificationStatus == 'earliest_verified_exact_match',
       );
     }
 
@@ -172,6 +176,7 @@ class ForensicScoringEngine {
     required String? possibleIntermediatePlatform,
     required String? intermediateReason,
     required Map<String, dynamic> technicalDetails,
+    required bool exactVisualMatch,
   }) {
     final signature = SignatureDatabase.primarySignatures.firstWhere(
       (item) => item.platformId == platformId,
@@ -200,10 +205,12 @@ class ForensicScoringEngine {
     return PlatformResult(
       platformId: signature.platformId,
       platformName: signature.platformName,
-      // A verified exact public match is decisive for the earliest observed
-      // upload, but is intentionally capped below a claim of certainty.
-      confidence: conflictingEvidence.isEmpty ? 82 : 72,
-      confidenceLevel: conflictingEvidence.isEmpty
+      // A public timestamp is decisive for the earliest observed upload, but
+      // only provider-marked exact visual matches receive high confidence.
+      confidence: exactVisualMatch
+          ? (conflictingEvidence.isEmpty ? 82 : 72)
+          : (conflictingEvidence.isEmpty ? 68 : 58),
+      confidenceLevel: exactVisualMatch && conflictingEvidence.isEmpty
           ? ConfidenceLevel.high
           : ConfidenceLevel.moderate,
       possibleIntermediatePlatform: possibleIntermediatePlatform,

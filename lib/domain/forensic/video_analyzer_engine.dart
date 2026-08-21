@@ -156,6 +156,7 @@ class VideoAnalyzerEngine {
           String? earliestVerifiedPlatform;
           String? earliestVerifiedTimestamp;
           DateTime? earliestVerifiedDate;
+          String? earliestVerifiedMatchType;
 
           Future<SocialCrawlPostEvidence?> resolvePostEvidence(
             OnlineMatchItem match,
@@ -215,9 +216,11 @@ class VideoAnalyzerEngine {
               final postEvidence = await resolvePostEvidence(match);
 
               final isExactMatch = match.matchType == 'exact_match';
-              if (isExactMatch &&
+              final canUsePlatformTimestamp =
                   postEvidence != null &&
-                  postEvidence.platformPostTimestamp != null) {
+                  postEvidence.platformPostTimestamp != null &&
+                  (isExactMatch || match.matchType == 'visual_match');
+              if (canUsePlatformTimestamp) {
                 final parsed = DateTime.tryParse(
                   postEvidence.platformPostTimestamp!,
                 );
@@ -228,6 +231,7 @@ class VideoAnalyzerEngine {
                   earliestVerifiedPlatform = match.classifiedPlatform;
                   earliestVerifiedTimestamp =
                       postEvidence.platformPostTimestamp;
+                  earliestVerifiedMatchType = match.matchType;
                 }
               }
 
@@ -248,7 +252,7 @@ class VideoAnalyzerEngine {
               );
               enrichedMatches.add(enrichedMatch);
 
-              if (isExactMatch &&
+              if (canUsePlatformTimestamp &&
                   postEvidence?.platformPostTimestamp != null &&
                   DateTime.tryParse(postEvidence!.platformPostTimestamp!) !=
                       null) {
@@ -263,10 +267,12 @@ class VideoAnalyzerEngine {
                     category: 'Platform Post Evidence',
                     finding:
                         '$platformCap public post timestamp verified (${postEvidence.platformPostTimestamp})',
-                    strength: EvidenceStrength.strong,
-                    scoreContribution: 28,
+                    strength: isExactMatch
+                        ? EvidenceStrength.strong
+                        : EvidenceStrength.moderate,
+                    scoreContribution: isExactMatch ? 28 : 18,
                     technicalExplanation:
-                        '$sourceDesc: Published ${postEvidence.platformPostTimestamp}. Exact verified platform timestamp.',
+                        '$sourceDesc: Published ${postEvidence.platformPostTimestamp}. ${isExactMatch ? 'Exact visual match verified by the provider.' : 'Direct platform link found in visual/search results; timestamp is verified from the platform URL or metadata.'}',
                   ),
                 );
               }
@@ -275,23 +281,10 @@ class VideoAnalyzerEngine {
             return enrichedMatches;
           }
 
-          final exactMatches = rawSearchResult.matches
-              .where((m) => m.matchType == 'exact_match')
-              .toList();
-          final fallbackMatches = rawSearchResult.matches
-              .where((m) => m.matchType != 'exact_match')
-              .toList();
-
-          List<OnlineMatchItem> enrichedMatches = [];
-          if (exactMatches.isNotEmpty) {
-            final enrichedExactMatches = await enrichMatches(exactMatches);
-            enrichedMatches.addAll(enrichedExactMatches);
-            // Related matches remain visible to the user, but cannot create
-            // timestamp evidence or influence the origin platform decision.
-            enrichedMatches.addAll(fallbackMatches);
-          } else {
-            enrichedMatches = rawSearchResult.matches;
-          }
+          // Resolve direct social URLs from all result buckets. Exact matches
+          // remain strongest, while visual matches can still provide a real
+          // platform timestamp instead of forcing an unknown result.
+          final enrichedMatches = await enrichMatches(rawSearchResult.matches);
 
           onlineSearchResult = OnlineSearchResult(
             status: rawSearchResult.status,
@@ -383,15 +376,19 @@ class VideoAnalyzerEngine {
 
           if (earliestVerifiedPlatform != null &&
               earliestVerifiedTimestamp != null) {
+            final isExactEarliest = earliestVerifiedMatchType == 'exact_match';
             allEvidence.add(
               EvidenceItem(
                 category: 'Timeline Evidence',
                 finding:
                     'Earliest verified timestamp points to ${earliestVerifiedPlatform!.toUpperCase()}',
-                strength: EvidenceStrength.strong,
-                scoreContribution: 32,
-                technicalExplanation:
-                    'The oldest verified public post timestamp was used as the strongest origin clue.',
+                strength: isExactEarliest
+                    ? EvidenceStrength.strong
+                    : EvidenceStrength.moderate,
+                scoreContribution: isExactEarliest ? 32 : 22,
+                technicalExplanation: isExactEarliest
+                    ? 'The oldest exact visual match with a verified public post timestamp was used as the strongest origin clue.'
+                    : 'No exact visual match timestamp was available, so the oldest direct platform URL timestamp from visual/search results was used as a calibrated origin clue.',
               ),
             );
           }
@@ -427,7 +424,8 @@ class VideoAnalyzerEngine {
         onlineSearchResult?.matches
             .where(
               (match) =>
-                  match.matchType == 'exact_match' &&
+                  (match.matchType == 'exact_match' ||
+                      match.matchType == 'visual_match') &&
                   match.platformEvidence?.platformPostTimestamp != null &&
                   DateTime.tryParse(
                         match.platformEvidence!.platformPostTimestamp!,
@@ -444,6 +442,11 @@ class VideoAnalyzerEngine {
     final earliestVerifiedMatch = verifiedExactTimestampMatches.isEmpty
         ? null
         : verifiedExactTimestampMatches.first;
+    final originVerificationStatus = earliestVerifiedMatch == null
+        ? 'local_signals_or_unverified_matches'
+        : earliestVerifiedMatch.matchType == 'exact_match'
+        ? 'earliest_verified_exact_match'
+        : 'earliest_verified_platform_timestamp';
 
     final technicalDetails = <String, dynamic>{
       'Container': containerResult.containerFormat,
@@ -470,10 +473,7 @@ class VideoAnalyzerEngine {
       if (earliestVerifiedMatch != null)
         'Earliest Verified Timestamp':
             earliestVerifiedMatch.platformEvidence!.platformPostTimestamp!,
-      if (earliestVerifiedMatch != null)
-        'Origin Verification Status': 'earliest_verified_exact_match',
-      if (earliestVerifiedMatch == null)
-        'Origin Verification Status': 'local_signals_or_unverified_matches',
+      'Origin Verification Status': originVerificationStatus,
       if (onlineSearchResult != null && onlineSearchResult.isSuccess)
         'Online Matches': '${onlineSearchResult.totalMatches} matches found',
     };

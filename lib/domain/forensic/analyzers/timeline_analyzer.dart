@@ -34,14 +34,15 @@ class TimelineAnalyzer {
       return TimelineAnalysisResult(evidence: evidence);
     }
 
-    // Check for direct Platform Post Timestamps (from SocialCrawl) first
+    // Check direct platform timestamps first. Exact visual matches are strongest,
+    // but a direct social URL with a decoded timestamp is still useful evidence.
     final platformPostsWithTimestamps = onlineResult.matches
         .where(
           (m) =>
               m.platformEvidence != null &&
               m.platformEvidence!.platformPostTimestamp != null &&
               m.platformEvidence!.platformPostTimestamp!.isNotEmpty &&
-              m.matchType == 'exact_match' &&
+              (m.matchType == 'exact_match' || m.matchType == 'visual_match') &&
               DateTime.tryParse(m.platformEvidence!.platformPostTimestamp!) !=
                   null &&
               m.classifiedPlatform != 'other',
@@ -62,6 +63,7 @@ class TimelineAnalyzer {
       });
       final earliestPost = platformPostsWithTimestamps.first;
       final postEv = earliestPost.platformEvidence!;
+      final isExactMatch = earliestPost.matchType == 'exact_match';
 
       String platformName = earliestPost.classifiedPlatform.toUpperCase();
       if (earliestPost.classifiedPlatform == 'tiktok') {
@@ -78,11 +80,14 @@ class TimelineAnalyzer {
         EvidenceItem(
           category: 'Timeline Evidence',
           finding:
-              '$platformName has the earliest verified exact-match public timestamp (${postEv.platformPostTimestamp})',
-          strength: EvidenceStrength.strong,
-          scoreContribution: 25,
-          technicalExplanation:
-              'The result was provider-marked as an exact visual match and has a direct public platform timestamp. This is the strongest origin clue, but still proves public publication rather than private authorship.',
+              '$platformName has the earliest verified public timestamp (${postEv.platformPostTimestamp})',
+          strength: isExactMatch
+              ? EvidenceStrength.strong
+              : EvidenceStrength.moderate,
+          scoreContribution: isExactMatch ? 25 : 15,
+          technicalExplanation: isExactMatch
+              ? 'The result was provider-marked as an exact visual match and has a direct public platform timestamp. This is the strongest origin clue, but still proves public publication rather than private authorship.'
+              : 'No provider-marked exact match was available. This direct social platform URL still exposed a verified post timestamp, so it is used as calibrated origin evidence.',
         ),
       );
 
@@ -124,9 +129,15 @@ class TimelineAnalyzer {
     final earliest = datedMatches.first;
 
     String platformName = earliest.classifiedPlatform.toUpperCase();
-    if (earliest.classifiedPlatform == 'tiktok') platformName = 'TikTok';
-    if (earliest.classifiedPlatform == 'instagram') platformName = 'Instagram';
-    if (earliest.classifiedPlatform == 'youtube') platformName = 'YouTube';
+    if (earliest.classifiedPlatform == 'tiktok') {
+      platformName = 'TikTok';
+    }
+    if (earliest.classifiedPlatform == 'instagram') {
+      platformName = 'Instagram';
+    }
+    if (earliest.classifiedPlatform == 'youtube') {
+      platformName = 'YouTube';
+    }
 
     evidence.add(
       EvidenceItem(

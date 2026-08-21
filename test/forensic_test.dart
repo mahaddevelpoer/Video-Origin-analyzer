@@ -202,6 +202,38 @@ void main() {
         expect(result.platformId, 'tiktok');
       },
     );
+
+    test(
+      'Uses verified platform timestamp from visual result without calling it exact',
+      () {
+        final engine = ForensicScoringEngine();
+
+        final result = engine.evaluate(
+          allEvidence: const [
+            EvidenceItem(
+              category: 'Platform Post Evidence',
+              finding:
+                  'INSTAGRAM public post timestamp verified (2026-08-04T12:00:00.000Z)',
+              strength: EvidenceStrength.moderate,
+              scoreContribution: 18,
+              technicalExplanation:
+                  'Direct Instagram URL found in visual results and timestamp decoded.',
+            ),
+          ],
+          possibleIntermediatePlatform: null,
+          intermediateReason: null,
+          technicalDetails: {
+            'Earliest Verified Platform': 'instagram',
+            'Earliest Verified Timestamp': '2026-08-04T12:00:00.000Z',
+            'Origin Verification Status':
+                'earliest_verified_platform_timestamp',
+          },
+        );
+
+        expect(result.platformId, 'instagram');
+        expect(result.confidenceLevel.name, 'moderate');
+      },
+    );
   });
 
   group('LinkTimestampResolver Tests', () {

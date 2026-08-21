@@ -49,6 +49,11 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
       widget.result.technicalDetails['Origin Verification Status'] ==
       'earliest_verified_exact_match';
 
+  bool get _hasVerifiedPlatformTimestamp =>
+      _hasVerifiedExactPublicMatch ||
+      widget.result.technicalDetails['Origin Verification Status'] ==
+          'earliest_verified_platform_timestamp';
+
   String _formatFriendlyTimestamp(String iso) {
     final parsed = DateTime.tryParse(iso);
     if (parsed == null) return iso;
@@ -179,15 +184,18 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
     final earliestPlatform = _getEarliestVerifiedPlatform();
     final earliestTimestamp = _getEarliestVerifiedTimestamp();
 
-    if (_hasVerifiedExactPublicMatch &&
+    if (_hasVerifiedPlatformTimestamp &&
         earliestPlatform != null &&
         earliestTimestamp != null) {
       final readablePlatform =
           earliestPlatform[0].toUpperCase() + earliestPlatform.substring(1);
+      final proofType = _hasVerifiedExactPublicMatch
+          ? 'verified exact visual match'
+          : 'verified public platform timestamp';
       if (inter != null) {
-        return 'The earliest verified exact visual match was published on $readablePlatform. This copy may have been shared through $inter later.';
+        return 'The earliest $proofType was published on $readablePlatform. This copy may have been shared through $inter later.';
       }
-      return 'The earliest verified exact visual match was published on $readablePlatform.';
+      return 'The earliest $proofType was published on $readablePlatform.';
     }
 
     if (inter != null) {
@@ -338,7 +346,7 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            _hasVerifiedExactPublicMatch
+                            _hasVerifiedPlatformTimestamp
                                 ? 'EARLIEST VERIFIED PUBLIC MATCH'
                                 : 'LIKELY SOURCE PLATFORM',
                             style: const TextStyle(
