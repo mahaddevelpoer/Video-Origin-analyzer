@@ -48,16 +48,25 @@ class ForensicScoringEngine {
       scores[platformId] = total;
     });
 
-    final earliestVerifiedPlatform = technicalDetails['Earliest Verified Platform'] as String?;
-    final earliestVerifiedTimestamp = technicalDetails['Earliest Verified Timestamp'] as String?;
-    if (earliestVerifiedPlatform != null &&
+    final earliestVerifiedPlatform =
+        technicalDetails['Earliest Verified Platform'] as String?;
+    final earliestVerifiedTimestamp =
+        technicalDetails['Earliest Verified Timestamp'] as String?;
+    final exactTimestampVerified =
+        technicalDetails['Origin Verification Status'] ==
+        'earliest_verified_exact_match';
+    if (exactTimestampVerified &&
+        earliestVerifiedPlatform != null &&
         earliestVerifiedTimestamp != null &&
+        DateTime.tryParse(earliestVerifiedTimestamp) != null &&
         scores.containsKey(earliestVerifiedPlatform)) {
-      // A verified platform-post timestamp is strong evidence, but it still
-      // proves publication on that platform, not authorship. Keep it below
-      // absolute certainty and let independent local evidence break ties.
-      scores[earliestVerifiedPlatform] =
-          (scores[earliestVerifiedPlatform]! + 32).clamp(0, 100);
+      return _exactTimestampResult(
+        platformId: earliestVerifiedPlatform,
+        allEvidence: allEvidence,
+        possibleIntermediatePlatform: possibleIntermediatePlatform,
+        intermediateReason: intermediateReason,
+        technicalDetails: technicalDetails,
+      );
     }
 
     // Determine top original platform candidate
@@ -86,7 +95,9 @@ class ForensicScoringEngine {
         platformId: 'unknown',
         platformName: 'Unknown / Inconclusive',
         confidence: maxScore > 0 ? 30 : 0,
-        confidenceLevel: maxScore > 0 ? ConfidenceLevel.inconclusive : ConfidenceLevel.unknown,
+        confidenceLevel: maxScore > 0
+            ? ConfidenceLevel.inconclusive
+            : ConfidenceLevel.unknown,
         possibleIntermediatePlatform: possibleIntermediatePlatform,
         intermediateReason: intermediateReason,
         evidenceList: allEvidence,
@@ -104,14 +115,18 @@ class ForensicScoringEngine {
     // runner-up. A close race must remain inconclusive even with many related
     // visual results.
     final margin = maxScore - runnerUpScore;
-    int confidence = (38 + (maxScore * 0.35).round() + (margin * 0.45).round()).clamp(35, 92).toInt();
+    int confidence = (38 + (maxScore * 0.35).round() + (margin * 0.45).round())
+        .clamp(35, 92)
+        .toInt();
     if (margin < 10) confidence = confidence.clamp(35, 58).toInt();
 
     final List<EvidenceItem> primaryEvidence = [];
     final List<EvidenceItem> conflictingEvidence = [];
 
     for (final item in allEvidence) {
-      if (item.finding.toLowerCase().contains(bestSig.platformName.toLowerCase())) {
+      if (item.finding.toLowerCase().contains(
+        bestSig.platformName.toLowerCase(),
+      )) {
         primaryEvidence.add(item);
       } else if (runnerUpScore > 15 &&
           runnerUpId.isNotEmpty &&
@@ -143,6 +158,54 @@ class ForensicScoringEngine {
       platformName: bestSig.platformName,
       confidence: confidence,
       confidenceLevel: level,
+      possibleIntermediatePlatform: possibleIntermediatePlatform,
+      intermediateReason: intermediateReason,
+      evidenceList: primaryEvidence,
+      conflictingEvidenceList: conflictingEvidence,
+      technicalDetails: technicalDetails,
+    );
+  }
+
+  PlatformResult _exactTimestampResult({
+    required String platformId,
+    required List<EvidenceItem> allEvidence,
+    required String? possibleIntermediatePlatform,
+    required String? intermediateReason,
+    required Map<String, dynamic> technicalDetails,
+  }) {
+    final signature = SignatureDatabase.primarySignatures.firstWhere(
+      (item) => item.platformId == platformId,
+      orElse: () => SignatureDatabase.tiktok,
+    );
+    final primaryEvidence = <EvidenceItem>[];
+    final conflictingEvidence = <EvidenceItem>[];
+    final platformName = signature.platformName.toLowerCase();
+    final otherPlatformNames = SignatureDatabase.primarySignatures
+        .where((item) => item.platformId != platformId)
+        .map((item) => item.platformName.toLowerCase())
+        .toList();
+
+    for (final item in allEvidence) {
+      final finding = item.finding.toLowerCase();
+      if (finding.contains(platformName) ||
+          item.category == 'Timeline Evidence') {
+        primaryEvidence.add(item);
+      } else if (otherPlatformNames.any(finding.contains)) {
+        conflictingEvidence.add(item);
+      } else {
+        primaryEvidence.add(item);
+      }
+    }
+
+    return PlatformResult(
+      platformId: signature.platformId,
+      platformName: signature.platformName,
+      // A verified exact public match is decisive for the earliest observed
+      // upload, but is intentionally capped below a claim of certainty.
+      confidence: conflictingEvidence.isEmpty ? 82 : 72,
+      confidenceLevel: conflictingEvidence.isEmpty
+          ? ConfidenceLevel.high
+          : ConfidenceLevel.moderate,
       possibleIntermediatePlatform: possibleIntermediatePlatform,
       intermediateReason: intermediateReason,
       evidenceList: primaryEvidence,

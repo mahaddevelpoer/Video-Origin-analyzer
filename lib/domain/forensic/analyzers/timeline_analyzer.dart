@@ -18,7 +18,9 @@ class TimelineAnalyzer {
   TimelineAnalysisResult analyze(OnlineSearchResult? onlineResult) {
     final evidence = <EvidenceItem>[];
 
-    if (onlineResult == null || !onlineResult.isSuccess || onlineResult.matches.isEmpty) {
+    if (onlineResult == null ||
+        !onlineResult.isSuccess ||
+        onlineResult.matches.isEmpty) {
       evidence.add(
         const EvidenceItem(
           category: 'Timeline Evidence',
@@ -34,31 +36,49 @@ class TimelineAnalyzer {
 
     // Check for direct Platform Post Timestamps (from SocialCrawl) first
     final platformPostsWithTimestamps = onlineResult.matches
-        .where((m) =>
-            m.platformEvidence != null &&
-            m.platformEvidence!.platformPostTimestamp != null &&
-            m.platformEvidence!.platformPostTimestamp!.isNotEmpty &&
-            m.classifiedPlatform != 'other')
+        .where(
+          (m) =>
+              m.platformEvidence != null &&
+              m.platformEvidence!.platformPostTimestamp != null &&
+              m.platformEvidence!.platformPostTimestamp!.isNotEmpty &&
+              m.matchType == 'exact_match' &&
+              DateTime.tryParse(m.platformEvidence!.platformPostTimestamp!) !=
+                  null &&
+              m.classifiedPlatform != 'other',
+        )
         .toList();
 
     if (platformPostsWithTimestamps.isNotEmpty) {
-      platformPostsWithTimestamps.sort((a, b) => a.position.compareTo(b.position));
+      platformPostsWithTimestamps.sort((a, b) {
+        final aDate = DateTime.tryParse(
+          a.platformEvidence!.platformPostTimestamp!,
+        );
+        final bDate = DateTime.tryParse(
+          b.platformEvidence!.platformPostTimestamp!,
+        );
+        if (aDate == null) return 1;
+        if (bDate == null) return -1;
+        return aDate.compareTo(bDate);
+      });
       final earliestPost = platformPostsWithTimestamps.first;
       final postEv = earliestPost.platformEvidence!;
 
       String platformName = earliestPost.classifiedPlatform.toUpperCase();
       if (earliestPost.classifiedPlatform == 'tiktok') platformName = 'TikTok';
-      if (earliestPost.classifiedPlatform == 'instagram') platformName = 'Instagram';
-      if (earliestPost.classifiedPlatform == 'youtube') platformName = 'YouTube';
+      if (earliestPost.classifiedPlatform == 'instagram')
+        platformName = 'Instagram';
+      if (earliestPost.classifiedPlatform == 'youtube')
+        platformName = 'YouTube';
 
       evidence.add(
         EvidenceItem(
           category: 'Timeline Evidence',
-          finding: '$platformName has the earliest matching public platform-post timestamp found (${postEv.platformPostTimestamp})',
+          finding:
+              '$platformName has the earliest verified exact-match public timestamp (${postEv.platformPostTimestamp})',
           strength: EvidenceStrength.strong,
           scoreContribution: 25,
           technicalExplanation:
-              'Direct platform metadata indicates $platformName has the earliest matching public platform-post timestamp found. Note: A public platform timestamp indicates when content was posted on that platform and does not definitively prove original creation or upload.',
+              'The result was provider-marked as an exact visual match and has a direct public platform timestamp. This is the strongest origin clue, but still proves public publication rather than private authorship.',
         ),
       );
 
@@ -71,7 +91,12 @@ class TimelineAnalyzer {
 
     // Fallback: Check for search engine discovery dates
     final datedMatches = onlineResult.matches
-        .where((m) => m.date != null && m.date!.isNotEmpty && m.classifiedPlatform != 'other')
+        .where(
+          (m) =>
+              m.date != null &&
+              m.date!.isNotEmpty &&
+              m.classifiedPlatform != 'other',
+        )
         .where((m) => DateTime.tryParse(m.date!) != null)
         .toList();
 
@@ -89,7 +114,9 @@ class TimelineAnalyzer {
       return TimelineAnalysisResult(evidence: evidence);
     }
 
-    datedMatches.sort((a, b) => DateTime.parse(a.date!).compareTo(DateTime.parse(b.date!)));
+    datedMatches.sort(
+      (a, b) => DateTime.parse(a.date!).compareTo(DateTime.parse(b.date!)),
+    );
     final earliest = datedMatches.first;
 
     String platformName = earliest.classifiedPlatform.toUpperCase();
@@ -100,11 +127,12 @@ class TimelineAnalyzer {
     evidence.add(
       EvidenceItem(
         category: 'Timeline Evidence',
-        finding: '$platformName has the earliest discovered search-indexed date (${earliest.date})',
+        finding:
+            '$platformName has the earliest discovered search-indexed date (${earliest.date})',
         strength: EvidenceStrength.weak,
-        scoreContribution: 3,
+        scoreContribution: 0,
         technicalExplanation:
-            'This is a search-index date, not a verified platform upload timestamp. It is shown as weak supporting context only.',
+            'This is a search-index date, not a verified platform upload timestamp. It is shown for context only and cannot influence the origin decision.',
       ),
     );
 

@@ -9,14 +9,12 @@ class MotionReveal extends StatefulWidget {
     super.key,
     required this.child,
     this.delay = Duration.zero,
-    this.duration = const Duration(milliseconds: 280),
-    this.offset = const Offset(0, 0.02),
+    this.duration = const Duration(milliseconds: 220),
   });
 
   final Widget child;
   final Duration delay;
   final Duration duration;
-  final Offset offset;
 
   @override
   State<MotionReveal> createState() => _MotionRevealState();
@@ -52,13 +50,13 @@ class _MotionRevealState extends State<MotionReveal>
 
   @override
   Widget build(BuildContext context) {
-    final curved = CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
+    final curved = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutCubic,
+    );
     return FadeTransition(
       opacity: curved,
-      child: SlideTransition(
-        position: Tween<Offset>(begin: widget.offset, end: Offset.zero).animate(curved),
-        child: RepaintBoundary(child: widget.child),
-      ),
+      child: RepaintBoundary(child: widget.child),
     );
   }
 }

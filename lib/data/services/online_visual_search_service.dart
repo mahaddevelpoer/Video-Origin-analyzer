@@ -15,10 +15,9 @@ class OnlineVisualSearchService {
   final FrameExtractorService _frameExtractor;
 
   OnlineVisualSearchService({FrameExtractorService? frameExtractor})
-      : _frameExtractor = frameExtractor ?? FrameExtractorService();
+    : _frameExtractor = frameExtractor ?? FrameExtractorService();
 
-  /// Perform smart visual search over extracted representative video frames.
-  /// Searches best frame (center) first; checks frequency across TikTok, Instagram, YouTube, Facebook.
+  /// Searches representative frames and only stops early for repeated exact matches.
   Future<OnlineSearchResult> performVisualSearch(
     InputVideoPayload payload, {
     String? ocrQuery,
@@ -27,7 +26,8 @@ class OnlineVisualSearchService {
       final frames = await _frameExtractor.extractRepresentativeFrames(payload);
       if (frames.isEmpty) {
         return OnlineSearchResult.failure(
-          message: 'No suitable video frames could be extracted for visual search.',
+          message:
+              'No suitable video frames could be extracted for visual search.',
           code: 'NO_FRAMES',
         );
       }
@@ -37,7 +37,7 @@ class OnlineVisualSearchService {
       );
 
       final accumulatedMatches = <OnlineMatchItem>[];
-      final platformFrequency = <String, int>{
+      final exactPlatformFrequency = <String, int>{
         'instagram': 0,
         'tiktok': 0,
         'youtube': 0,
@@ -45,27 +45,39 @@ class OnlineVisualSearchService {
       };
 
       for (final frame in frames) {
-        debugPrint('Querying Supabase Edge Function visual-search for ${frame.position.name} frame...');
+        debugPrint(
+          'Querying Supabase Edge Function visual-search for ${frame.position.name} frame...',
+        );
 
-        final result = await _sendFrameToEdgeFunction(frame.base64Jpeg, ocrQuery: ocrQuery);
+        final result = await _sendFrameToEdgeFunction(
+          frame.base64Jpeg,
+          ocrQuery: ocrQuery,
+        );
         lastResult = result;
 
         if (result.isSuccess && result.matches.isNotEmpty) {
           accumulatedMatches.addAll(result.matches);
-          result.summary.forEach((key, count) {
-            if (platformFrequency.containsKey(key)) {
-              platformFrequency[key] = (platformFrequency[key] ?? 0) + count;
+          for (final match in result.matches.where(
+            (item) => item.matchType == 'exact_match',
+          )) {
+            final key = match.classifiedPlatform;
+            if (exactPlatformFrequency.containsKey(key)) {
+              exactPlatformFrequency[key] =
+                  (exactPlatformFrequency[key] ?? 0) + 1;
             } else {
-              platformFrequency['other'] = (platformFrequency['other'] ?? 0) + count;
+              exactPlatformFrequency['other'] =
+                  (exactPlatformFrequency['other'] ?? 0) + 1;
             }
-          });
+          }
 
-          final hasDominant = platformFrequency.entries
+          final hasDominant = exactPlatformFrequency.entries
               .where((e) => e.key != 'other')
               .any((e) => e.value >= 2);
 
           if (hasDominant) {
-            debugPrint('Dominant platform frequency detected across frames. Stopping further searches.');
+            debugPrint(
+              'Repeated exact visual match detected across frames. Stopping further searches.',
+            );
             break;
           }
         }
@@ -80,9 +92,13 @@ class OnlineVisualSearchService {
       if (accumulatedMatches.isNotEmpty) {
         final uniqueMatches = <String, OnlineMatchItem>{};
         for (final match in accumulatedMatches) {
-          final key = match.link.isNotEmpty ? match.link : '${match.title}|${match.classifiedPlatform}';
+          final key = match.link.isNotEmpty
+              ? match.link
+              : '${match.title}|${match.classifiedPlatform}';
           final existing = uniqueMatches[key];
-          if (existing == null || (match.matchType == 'exact_match' && existing.matchType != 'exact_match')) {
+          if (existing == null ||
+              (match.matchType == 'exact_match' &&
+                  existing.matchType != 'exact_match')) {
             uniqueMatches[key] = match;
           }
         }
@@ -91,8 +107,10 @@ class OnlineVisualSearchService {
           status: 'success',
           totalMatches: matches.length,
           summary: {
-            for (final platform in platformFrequency.keys)
-              platform: matches.where((m) => m.classifiedPlatform == platform).length,
+            for (final platform in exactPlatformFrequency.keys)
+              platform: matches
+                  .where((m) => m.classifiedPlatform == platform)
+                  .length,
           },
           matches: matches,
         );
@@ -102,13 +120,17 @@ class OnlineVisualSearchService {
     } catch (e) {
       debugPrint('OnlineVisualSearchService Exception: $e');
       return OnlineSearchResult.failure(
-        message: 'Visual search could not be verified. Local forensic analysis is still available.',
+        message:
+            'Visual search could not be verified. Local forensic analysis is still available.',
         code: 'VISUAL_SEARCH_UNAVAILABLE',
       );
     }
   }
 
-  Future<OnlineSearchResult> _sendFrameToEdgeFunction(String base64Jpeg, {String? ocrQuery}) async {
+  Future<OnlineSearchResult> _sendFrameToEdgeFunction(
+    String base64Jpeg, {
+    String? ocrQuery,
+  }) async {
     try {
       final response = await http
           .post(
@@ -120,7 +142,8 @@ class OnlineVisualSearchService {
             body: jsonEncode({
               'image_base64': base64Jpeg,
               'max_results': 10,
-              if (ocrQuery != null && ocrQuery.isNotEmpty) 'ocr_query': ocrQuery,
+              if (ocrQuery != null && ocrQuery.isNotEmpty)
+                'ocr_query': ocrQuery,
             }),
           )
           .timeout(const Duration(seconds: 12));
@@ -130,12 +153,14 @@ class OnlineVisualSearchService {
         return OnlineSearchResult.fromJson(jsonMap);
       } else if (response.statusCode == 404) {
         return OnlineSearchResult.failure(
-          message: 'Online visual search proxy pending deployment on Supabase. Local multi-signal forensic engine completed successfully.',
+          message:
+              'Online visual search proxy pending deployment on Supabase. Local multi-signal forensic engine completed successfully.',
           code: 'HTTP_404',
         );
       } else {
         final jsonMap = jsonDecode(response.body) as Map<String, dynamic>?;
-        final errMsg = jsonMap?['error'] ?? 'Edge Function status ${response.statusCode}';
+        final errMsg =
+            jsonMap?['error'] ?? 'Edge Function status ${response.statusCode}';
         final errCode = jsonMap?['code'] ?? 'HTTP_${response.statusCode}';
 
         return OnlineSearchResult.failure(
@@ -155,5 +180,4 @@ class OnlineVisualSearchService {
       );
     }
   }
-
 }

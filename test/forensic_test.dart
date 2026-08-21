@@ -105,7 +105,8 @@ void main() {
       final result = engine.evaluate(
         allEvidence: evidence,
         possibleIntermediatePlatform: 'WhatsApp',
-        intermediateReason: 'Aggressive compression (bitrate < 1500kbps) detected.',
+        intermediateReason:
+            'Aggressive compression (bitrate < 1500kbps) detected.',
         technicalDetails: {'Container': 'MP4', 'Bitrate': '800 kbps'},
       );
 
@@ -114,28 +115,99 @@ void main() {
       expect(result.intermediateReason, contains('Aggressive compression'));
     });
 
-    test('Prefers earliest verified timestamp platform when technical evidence is otherwise weak', () {
-      final engine = ForensicScoringEngine();
+    test(
+      'Prefers earliest verified timestamp platform when technical evidence is otherwise weak',
+      () {
+        final engine = ForensicScoringEngine();
 
-      final result = engine.evaluate(
-        allEvidence: const [],
-        possibleIntermediatePlatform: null,
-        intermediateReason: null,
-        technicalDetails: {
-          'Container': 'MP4',
-          'Earliest Verified Platform': 'instagram',
-          'Earliest Verified Timestamp': '2026-08-04T12:00:00.000Z',
-        },
-      );
+        final result = engine.evaluate(
+          allEvidence: const [],
+          possibleIntermediatePlatform: null,
+          intermediateReason: null,
+          technicalDetails: {
+            'Container': 'MP4',
+            'Earliest Verified Platform': 'instagram',
+            'Earliest Verified Timestamp': '2026-08-04T12:00:00.000Z',
+            'Origin Verification Status': 'earliest_verified_exact_match',
+          },
+        );
 
-      expect(result.platformId, 'instagram');
-      expect(result.confidence >= 35, true);
-    });
+        expect(result.platformId, 'instagram');
+        expect(result.confidenceLevel.name, 'high');
+      },
+    );
+
+    test(
+      'Uses the oldest verified exact match over conflicting local platform signals',
+      () {
+        final engine = ForensicScoringEngine();
+        final evidence = [
+          const EvidenceItem(
+            category: 'Metadata',
+            finding: 'TikTok-compatible filename pattern detected',
+            strength: EvidenceStrength.strong,
+            scoreContribution: 25,
+            technicalExplanation: 'Local filename clue',
+          ),
+          const EvidenceItem(
+            category: 'Visual',
+            finding: 'TikTok watermark detected',
+            strength: EvidenceStrength.strong,
+            scoreContribution: 25,
+            technicalExplanation: 'Local watermark clue',
+          ),
+        ];
+
+        final result = engine.evaluate(
+          allEvidence: evidence,
+          possibleIntermediatePlatform: null,
+          intermediateReason: null,
+          technicalDetails: {
+            'Earliest Verified Platform': 'youtube',
+            'Earliest Verified Timestamp': '2021-01-01T00:00:00.000Z',
+            'Origin Verification Status': 'earliest_verified_exact_match',
+          },
+        );
+
+        expect(result.platformId, 'youtube');
+        expect(result.confidenceLevel.name, 'moderate');
+      },
+    );
+
+    test(
+      'Does not let an unverified timestamp override local platform evidence',
+      () {
+        final engine = ForensicScoringEngine();
+        final evidence = [
+          const EvidenceItem(
+            category: 'Visual',
+            finding: 'TikTok watermark detected',
+            strength: EvidenceStrength.strong,
+            scoreContribution: 25,
+            technicalExplanation: 'Local watermark clue',
+          ),
+        ];
+
+        final result = engine.evaluate(
+          allEvidence: evidence,
+          possibleIntermediatePlatform: null,
+          intermediateReason: null,
+          technicalDetails: {
+            'Earliest Verified Platform': 'instagram',
+            'Earliest Verified Timestamp': '2020-01-01T00:00:00.000Z',
+            'Origin Verification Status': 'local_signals_or_unverified_matches',
+          },
+        );
+
+        expect(result.platformId, 'tiktok');
+      },
+    );
   });
 
   group('LinkTimestampResolver Tests', () {
     test('Resolves Instagram link to exact timestamp', () {
-      const url = 'https://www.instagram.com/reel/Dbmx219TVIR/?utm_source=ig_web_copy_link';
+      const url =
+          'https://www.instagram.com/reel/Dbmx219TVIR/?utm_source=ig_web_copy_link';
       final result = LinkTimestampResolver.resolve(url);
 
       expect(result.supported, true);
@@ -145,7 +217,8 @@ void main() {
     });
 
     test('Resolves TikTok link to exact timestamp', () {
-      const url = 'https://www.tiktok.com/@tiktok/video/7106594312292453678?is_from_webapp=1';
+      const url =
+          'https://www.tiktok.com/@tiktok/video/7106594312292453678?is_from_webapp=1';
       final result = LinkTimestampResolver.resolve(url);
 
       expect(result.supported, true);
@@ -158,7 +231,8 @@ void main() {
   group('LocalOcrService Tests', () {
     test('Cleans text noise and extracts handles and hashtags', () async {
       final ocr = LocalOcrService();
-      const rawText = 'JFIF @creator_user Check this out #viral #trending Exif 12345';
+      const rawText =
+          'JFIF @creator_user Check this out #viral #trending Exif 12345';
 
       final cleaned = ocr.cleanOcrText(rawText);
       final usernames = ocr.extractUsernames(cleaned);
@@ -172,13 +246,24 @@ void main() {
 
   group('UrlPlatformDetector Tests', () {
     test('Detects platform and normalizes social URLs', () {
-      const igUrl = 'https://www.instagram.com/reel/abc123/?utm_source=igweb&igsh=123';
-      const ttUrl = 'https://www.tiktok.com/@user/video/71829304918239?is_from_webapp=1';
+      const igUrl =
+          'https://www.instagram.com/reel/abc123/?utm_source=igweb&igsh=123';
+      const ttUrl =
+          'https://www.tiktok.com/@user/video/71829304918239?is_from_webapp=1';
       const ytUrl = 'https://youtu.be/dQw4w9WgXcQ';
 
-      expect(UrlPlatformDetector.detectPlatform(igUrl), DetectedPlatform.instagram);
-      expect(UrlPlatformDetector.detectPlatform(ttUrl), DetectedPlatform.tiktok);
-      expect(UrlPlatformDetector.detectPlatform(ytUrl), DetectedPlatform.youtube);
+      expect(
+        UrlPlatformDetector.detectPlatform(igUrl),
+        DetectedPlatform.instagram,
+      );
+      expect(
+        UrlPlatformDetector.detectPlatform(ttUrl),
+        DetectedPlatform.tiktok,
+      );
+      expect(
+        UrlPlatformDetector.detectPlatform(ytUrl),
+        DetectedPlatform.youtube,
+      );
 
       final normalizedIg = UrlPlatformDetector.normalizeUrl(igUrl);
       expect(normalizedIg.contains('utm_source'), false);
@@ -188,8 +273,11 @@ void main() {
 
   group('InstagramTimestampDecoder Tests', () {
     test('Decodes Instagram Reel URL to exact UTC timestamp mathematically', () {
-      const sampleReelUrl = 'https://www.instagram.com/reel/Dbmx219TVIR/?utm_source=ig_web_copy_link';
-      final decodedDate = InstagramTimestampDecoder.decodeShortcodeToDate(sampleReelUrl);
+      const sampleReelUrl =
+          'https://www.instagram.com/reel/Dbmx219TVIR/?utm_source=ig_web_copy_link';
+      final decodedDate = InstagramTimestampDecoder.decodeShortcodeToDate(
+        sampleReelUrl,
+      );
 
       expect(decodedDate, isNotNull);
       expect(decodedDate!.year, 2026);
@@ -203,8 +291,11 @@ void main() {
 
   group('TikTokTimestampDecoder Tests', () {
     test('Decodes TikTok video ID/URL to exact UTC timestamp mathematically', () {
-      const sampleTikTokUrl = 'https://www.tiktok.com/@tiktok/video/7106594312292453678?is_from_webapp=1';
-      final decodedDate = TikTokTimestampDecoder.decodeVideoIdToDate(sampleTikTokUrl);
+      const sampleTikTokUrl =
+          'https://www.tiktok.com/@tiktok/video/7106594312292453678?is_from_webapp=1';
+      final decodedDate = TikTokTimestampDecoder.decodeVideoIdToDate(
+        sampleTikTokUrl,
+      );
 
       expect(decodedDate, isNotNull);
       expect(decodedDate!.year, 2022);

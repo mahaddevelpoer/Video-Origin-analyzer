@@ -19,7 +19,8 @@ class FrameSelectionScreen extends ConsumerStatefulWidget {
   const FrameSelectionScreen({super.key, required this.payload});
 
   @override
-  ConsumerState<FrameSelectionScreen> createState() => _FrameSelectionScreenState();
+  ConsumerState<FrameSelectionScreen> createState() =>
+      _FrameSelectionScreenState();
 }
 
 class _FrameSelectionScreenState extends ConsumerState<FrameSelectionScreen> {
@@ -32,8 +33,10 @@ class _FrameSelectionScreenState extends ConsumerState<FrameSelectionScreen> {
   bool _ocrSearchEnabled = false;
   bool _isPlaying = false;
 
-  int get _videoDurationMs => _controller?.value.duration.inMilliseconds ?? _clipDurationMs;
-  int get _maxStartMs => (_videoDurationMs - _clipDurationMs).clamp(0, 1 << 31).toInt();
+  int get _videoDurationMs =>
+      _controller?.value.duration.inMilliseconds ?? _clipDurationMs;
+  int get _maxStartMs =>
+      (_videoDurationMs - _clipDurationMs).clamp(0, 1 << 31).toInt();
 
   @override
   void initState() {
@@ -53,7 +56,9 @@ class _FrameSelectionScreenState extends ConsumerState<FrameSelectionScreen> {
       _controller = controller;
       controller.addListener(_handleVideoUpdate);
       final duration = controller.value.duration.inMilliseconds;
-      _clipDurationMs = duration.clamp(1000, 15000).toInt();
+      _clipDurationMs = duration > 0
+          ? duration.clamp(1000, 15000).toInt()
+          : 1000;
       await _loadThumbnails();
     } catch (_) {
       await controller.dispose();
@@ -62,7 +67,7 @@ class _FrameSelectionScreenState extends ConsumerState<FrameSelectionScreen> {
   }
 
   List<int> get _candidateTimesMs {
-    if (_clipDurationMs <= 1000) return [_startMs, _startMs, _startMs];
+    if (_clipDurationMs <= 1000) return [_startMs];
     final step = _clipDurationMs / 4;
     return List<int>.generate(5, (index) => _startMs + (step * index).round());
   }
@@ -88,16 +93,30 @@ class _FrameSelectionScreenState extends ConsumerState<FrameSelectionScreen> {
     if (path == null) return;
     if (mounted) setState(() => _loading = true);
     final results = <Uint8List?>[];
-    for (final timeMs in _candidateTimesMs) {
-      final safeTimeMs = timeMs.clamp(0, (_videoDurationMs - 120).clamp(0, _videoDurationMs)).toInt();
-      final thumbnail = await VideoThumbnail.thumbnailData(
-        video: path,
-        imageFormat: ImageFormat.JPEG,
-        maxWidth: 420,
-        quality: 82,
-        timeMs: safeTimeMs,
-      );
-      results.add(thumbnail == null ? null : FrameExtractorService().cropPreview(thumbnail, widget.payload.cropRegion));
+    try {
+      for (final timeMs in _candidateTimesMs) {
+        // Native extractors can return a blank frame at the precise end time.
+        final safeTimeMs = timeMs
+            .clamp(0, (_videoDurationMs - 120).clamp(0, _videoDurationMs))
+            .toInt();
+        final thumbnail = await VideoThumbnail.thumbnailData(
+          video: path,
+          imageFormat: ImageFormat.JPEG,
+          maxWidth: 420,
+          quality: 82,
+          timeMs: safeTimeMs,
+        );
+        results.add(
+          thumbnail == null
+              ? null
+              : FrameExtractorService().cropPreview(
+                  thumbnail,
+                  widget.payload.cropRegion,
+                ),
+        );
+      }
+    } catch (_) {
+      // Keep the selector usable and show unavailable thumbnails instead of a stuck loader.
     }
     if (mounted) {
       setState(() {
@@ -109,7 +128,11 @@ class _FrameSelectionScreenState extends ConsumerState<FrameSelectionScreen> {
 
   Future<void> _continue() async {
     if (_selectedIndexes.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select at least 1 frame for the forensic search.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Select at least 1 frame for the forensic search.'),
+        ),
+      );
       return;
     }
     final selectedTimes = _selectedIndexes.toList()..sort();
@@ -121,7 +144,9 @@ class _FrameSelectionScreenState extends ConsumerState<FrameSelectionScreen> {
       cropRegion: widget.payload.cropRegion,
       analysisWindowStartMs: _startMs,
       analysisWindowDurationMs: _clipDurationMs,
-      selectedFrameTimesMs: selectedTimes.map((index) => _candidateTimesMs[index]).toList(),
+      selectedFrameTimesMs: selectedTimes
+          .map((index) => _candidateTimesMs[index])
+          .toList(),
     );
     final session = AnalysisSession(
       sessionId: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -129,7 +154,11 @@ class _FrameSelectionScreenState extends ConsumerState<FrameSelectionScreen> {
       startTime: DateTime.now(),
       ocrSearchEnabled: _ocrSearchEnabled,
     );
-    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => AnalysisProgressScreen(session: session)));
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => AnalysisProgressScreen(session: session),
+      ),
+    );
   }
 
   @override
@@ -147,19 +176,32 @@ class _FrameSelectionScreenState extends ConsumerState<FrameSelectionScreen> {
       appBar: AppBar(title: const Text('Choose Search Frames')),
       body: SafeArea(
         child: _loading
-            ? const Center(child: CircularProgressIndicator(color: AppColors.youtubeRed))
+            ? const Center(
+                child: CircularProgressIndicator(color: AppColors.youtubeRed),
+              )
             : SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text('1. Select a clip', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const Text(
+                      '1. Select a clip',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     const SizedBox(height: 6),
-                    const Text('For long videos, choose up to 15 seconds where the important action appears.', style: TextStyle(color: AppColors.textMuted)),
+                    const Text(
+                      'For long videos, choose up to 15 seconds where the important action appears.',
+                      style: TextStyle(color: AppColors.textMuted),
+                    ),
                     if (_controller?.value.isInitialized == true) ...[
                       const SizedBox(height: 14),
                       AspectRatio(
-                        aspectRatio: _controller!.value.aspectRatio,
+                        aspectRatio: _controller!.value.aspectRatio > 0
+                            ? _controller!.value.aspectRatio
+                            : 16 / 9,
                         child: VideoPlayer(_controller!),
                       ),
                       Row(
@@ -167,7 +209,9 @@ class _FrameSelectionScreenState extends ConsumerState<FrameSelectionScreen> {
                           IconButton(
                             tooltip: _isPlaying ? 'Pause video' : 'Play video',
                             onPressed: _togglePlayback,
-                            icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
+                            icon: Icon(
+                              _isPlaying ? Icons.pause : Icons.play_arrow,
+                            ),
                           ),
                           Expanded(
                             child: VideoProgressIndicator(
@@ -185,15 +229,28 @@ class _FrameSelectionScreenState extends ConsumerState<FrameSelectionScreen> {
                       ),
                     ],
                     const SizedBox(height: 12),
-                    Text('Start: ${(_startMs / 1000).toStringAsFixed(1)}s   Clip: ${(_clipDurationMs / 1000).toStringAsFixed(0)}s', style: const TextStyle(fontWeight: FontWeight.w600)),
+                    Text(
+                      'Start: ${(_startMs / 1000).toStringAsFixed(1)}s   Clip: ${(_clipDurationMs / 1000).toStringAsFixed(0)}s',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
                     Slider(
-                      value: _startMs.toDouble().clamp(0, _maxStartMs.toDouble()).toDouble(),
-                      max: _maxStartMs.toDouble() == 0 ? 1 : _maxStartMs.toDouble(),
+                      value: _startMs
+                          .toDouble()
+                          .clamp(0, _maxStartMs.toDouble())
+                          .toDouble(),
+                      max: _maxStartMs.toDouble() == 0
+                          ? 1
+                          : _maxStartMs.toDouble(),
                       activeColor: AppColors.youtubeRed,
                       onChanged: (value) {
                         setState(() => _startMs = value.round());
                       },
-                      onChangeEnd: (_) => _loadThumbnails(),
+                      onChangeEnd: (_) async {
+                        await _controller?.seekTo(
+                          Duration(milliseconds: _startMs),
+                        );
+                        await _loadThumbnails();
+                      },
                     ),
                     Wrap(
                       spacing: 8,
@@ -206,7 +263,9 @@ class _FrameSelectionScreenState extends ConsumerState<FrameSelectionScreen> {
                               ? (_) {
                                   setState(() {
                                     _clipDurationMs = seconds * 1000;
-                                    _startMs = _startMs.clamp(0, _maxStartMs).toInt();
+                                    _startMs = _startMs
+                                        .clamp(0, _maxStartMs)
+                                        .toInt();
                                     _selectedIndexes = {0};
                                   });
                                   _loadThumbnails();
@@ -215,16 +274,41 @@ class _FrameSelectionScreenState extends ConsumerState<FrameSelectionScreen> {
                         );
                       }).toList(),
                     ),
+                    if (_controller?.value.duration.inMilliseconds == 0)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: Text(
+                          'This file does not expose its duration on this device. The first available frame can still be searched.',
+                          style: TextStyle(
+                            color: AppColors.textMuted,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
                     const SizedBox(height: 24),
-                    const Text('2. Choose up to 3 search frames', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const Text(
+                      '2. Choose up to 3 search frames',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     const SizedBox(height: 6),
-                    Text('${_selectedIndexes.length}/3 selected. Choose 1, 2, or 3 frames.', style: const TextStyle(color: AppColors.textMuted)),
+                    Text(
+                      '${_selectedIndexes.length}/3 selected. Choose 1, 2, or 3 frames.',
+                      style: const TextStyle(color: AppColors.textMuted),
+                    ),
                     const SizedBox(height: 12),
                     GridView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: _thumbnails.length,
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 10, mainAxisSpacing: 10),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 10,
+                            mainAxisSpacing: 10,
+                          ),
                       itemBuilder: (context, index) {
                         final selected = _selectedIndexes.contains(index);
                         return InkWell(
@@ -240,10 +324,50 @@ class _FrameSelectionScreenState extends ConsumerState<FrameSelectionScreen> {
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
-                              if (_thumbnails[index] != null) Image.memory(_thumbnails[index]!, fit: BoxFit.cover) else const ColoredBox(color: Colors.black12),
-                              if (selected) Container(decoration: BoxDecoration(border: Border.all(color: AppColors.youtubeRed, width: 4), color: AppColors.youtubeRed.withAlpha(35))),
-                              Positioned(left: 8, bottom: 8, child: Text('${(_candidateTimesMs[index] / 1000).toStringAsFixed(1)}s', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, shadows: [Shadow(blurRadius: 3, color: Colors.black)]))),
-                              if (selected) const Positioned(right: 8, top: 8, child: Icon(Icons.check_circle, color: AppColors.youtubeRed, size: 28)),
+                              if (_thumbnails[index] != null)
+                                Image.memory(
+                                  _thumbnails[index]!,
+                                  fit: BoxFit.cover,
+                                )
+                              else
+                                const ColoredBox(color: Colors.black12),
+                              if (selected)
+                                Container(
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: AppColors.youtubeRed,
+                                      width: 4,
+                                    ),
+                                    color: AppColors.youtubeRed.withAlpha(35),
+                                  ),
+                                ),
+                              Positioned(
+                                left: 8,
+                                bottom: 8,
+                                child: Text(
+                                  '${(_candidateTimesMs[index] / 1000).toStringAsFixed(1)}s',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    shadows: [
+                                      Shadow(
+                                        blurRadius: 3,
+                                        color: Colors.black,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              if (selected)
+                                const Positioned(
+                                  right: 8,
+                                  top: 8,
+                                  child: Icon(
+                                    Icons.check_circle,
+                                    color: AppColors.youtubeRed,
+                                    size: 28,
+                                  ),
+                                ),
                             ],
                           ),
                         );
@@ -253,12 +377,22 @@ class _FrameSelectionScreenState extends ConsumerState<FrameSelectionScreen> {
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       value: _ocrSearchEnabled,
-                      onChanged: isPro ? (value) => setState(() => _ocrSearchEnabled = value) : null,
+                      onChanged: isPro
+                          ? (value) => setState(() => _ocrSearchEnabled = value)
+                          : null,
                       title: const Text('Find related videos using OCR text'),
-                      subtitle: Text(isPro ? 'Pro online OCR search. Local OCR still runs for every user.' : 'Pro feature. Local multilingual OCR remains available in the free analysis.'),
+                      subtitle: Text(
+                        isPro
+                            ? 'Pro online OCR search. Local OCR still runs for every user.'
+                            : 'Pro feature. Local multilingual OCR remains available in the free analysis.',
+                      ),
                     ),
                     const SizedBox(height: 12),
-                    ElevatedButton.icon(onPressed: _continue, icon: const Icon(Icons.search), label: const Text('SEARCH THESE FRAMES')),
+                    ElevatedButton.icon(
+                      onPressed: _continue,
+                      icon: const Icon(Icons.search),
+                      label: const Text('SEARCH THESE FRAMES'),
+                    ),
                   ],
                 ),
               ),

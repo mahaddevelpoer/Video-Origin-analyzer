@@ -38,9 +38,14 @@ class FrameExtractorService {
     File? tempFile;
 
     try {
-      if ((videoPath == null || videoPath.isEmpty) && payload.bytes != null && payload.bytes!.isNotEmpty && !kIsWeb) {
+      if ((videoPath == null || videoPath.isEmpty) &&
+          payload.bytes != null &&
+          payload.bytes!.isNotEmpty &&
+          !kIsWeb) {
         final tempDir = await getTemporaryDirectory();
-        tempFile = File('${tempDir.path}/temp_extract_${DateTime.now().millisecondsSinceEpoch}.mp4');
+        tempFile = File(
+          '${tempDir.path}/temp_extract_${DateTime.now().millisecondsSinceEpoch}.mp4',
+        );
         await tempFile.writeAsBytes(payload.bytes!);
         videoPath = tempFile.path;
       }
@@ -49,7 +54,11 @@ class FrameExtractorService {
         final times = payload.selectedFrameTimesMs.isNotEmpty
             ? payload.selectedFrameTimesMs.take(3).toList()
             : _defaultFrameTimes(payload);
-        final positions = [FramePosition.beginning, FramePosition.middle, FramePosition.ending];
+        final positions = [
+          FramePosition.beginning,
+          FramePosition.middle,
+          FramePosition.ending,
+        ];
         for (var i = 0; i < times.length; i++) {
           final frame = await _extractRealFrame(
             videoPath,
@@ -70,18 +79,14 @@ class FrameExtractorService {
       }
     }
 
-    if (results.isEmpty) {
-      // Fallback only if native video decoding is not available on platform
-      final fallback = _generateMinimalFrame(payload, FramePosition.middle);
-      results.add(fallback);
-    }
-
     return results;
   }
 
   List<int> _defaultFrameTimes(InputVideoPayload payload) {
     final start = payload.analysisWindowStartMs;
-    final duration = payload.analysisWindowDurationMs.clamp(1000, 15000).toInt();
+    final duration = payload.analysisWindowDurationMs
+        .clamp(1000, 15000)
+        .toInt();
     final endOffset = duration > 1000 ? duration - 1000 : duration ~/ 2;
     return [start + 1000, start + duration ~/ 2, start + endOffset];
   }
@@ -104,7 +109,9 @@ class FrameExtractorService {
       if (uint8list != null && uint8list.isNotEmpty) {
         final croppedBytes = _cropJpeg(uint8list, payloadCrop: cropRegion);
         final b64 = base64Encode(croppedBytes);
-        debugPrint('Successfully extracted REAL frame screenshot ($position, ${uint8list.length} bytes)');
+        debugPrint(
+          'Successfully extracted REAL frame screenshot ($position, ${uint8list.length} bytes)',
+        );
         return FrameExtractionResult(
           position: position,
           base64Jpeg: b64,
@@ -123,10 +130,22 @@ class FrameExtractorService {
     final decoded = img.decodeImage(bytes);
     if (decoded == null) return bytes;
 
-    final left = (decoded.width * crop.left).round().clamp(0, decoded.width - 1).toInt();
-    final top = (decoded.height * crop.top).round().clamp(0, decoded.height - 1).toInt();
-    final right = (decoded.width * crop.right).round().clamp(left + 1, decoded.width).toInt();
-    final bottom = (decoded.height * crop.bottom).round().clamp(top + 1, decoded.height).toInt();
+    final left = (decoded.width * crop.left)
+        .round()
+        .clamp(0, decoded.width - 1)
+        .toInt();
+    final top = (decoded.height * crop.top)
+        .round()
+        .clamp(0, decoded.height - 1)
+        .toInt();
+    final right = (decoded.width * crop.right)
+        .round()
+        .clamp(left + 1, decoded.width)
+        .toInt();
+    final bottom = (decoded.height * crop.bottom)
+        .round()
+        .clamp(top + 1, decoded.height)
+        .toInt();
     final cropped = img.copyCrop(
       decoded,
       x: left,
@@ -135,29 +154,5 @@ class FrameExtractorService {
       height: bottom - top,
     );
     return Uint8List.fromList(img.encodeJpg(cropped, quality: 82));
-  }
-
-  FrameExtractionResult _generateMinimalFrame(
-    InputVideoPayload payload,
-    FramePosition position,
-  ) {
-    const width = 320;
-    const height = 320;
-    final image = img.Image(width: width, height: height);
-
-    for (var y = 0; y < height; y++) {
-      for (var x = 0; x < width; x++) {
-        image.setPixelRgb(x, y, 40, 40, 40);
-      }
-    }
-
-    final jpegBytes = img.encodeJpg(image, quality: 80);
-    final b64 = base64Encode(jpegBytes);
-
-    return FrameExtractionResult(
-      position: position,
-      base64Jpeg: b64,
-      byteSize: jpegBytes.length,
-    );
   }
 }

@@ -37,7 +37,7 @@ class VideoAnalyzerEngine {
   final OnlineVisualSearchService? _onlineSearchService;
 
   VideoAnalyzerEngine({OnlineVisualSearchService? onlineSearchService})
-      : _onlineSearchService = onlineSearchService;
+    : _onlineSearchService = onlineSearchService;
 
   /// Runs multi-signal local video origin analysis + local OCR + online visual/search evidence fusion.
   Future<PlatformResult> analyzeVideo({
@@ -121,7 +121,8 @@ class VideoAnalyzerEngine {
           allEvidence.add(
             EvidenceItem(
               category: 'Text/OCR Evidence',
-              finding: 'Text detected across ${ocrResults.length} selected frame(s) (${bestOcr.cleanedText.length > 50 ? "${bestOcr.cleanedText.substring(0, 50)}..." : bestOcr.cleanedText})',
+              finding:
+                  'Text detected across ${ocrResults.length} selected frame(s) (${bestOcr.cleanedText.length > 50 ? "${bestOcr.cleanedText.substring(0, 50)}..." : bestOcr.cleanedText})',
               strength: EvidenceStrength.moderate,
               scoreContribution: 15,
               technicalExplanation:
@@ -156,12 +157,15 @@ class VideoAnalyzerEngine {
           String? earliestVerifiedTimestamp;
           DateTime? earliestVerifiedDate;
 
-          Future<SocialCrawlPostEvidence?> resolvePostEvidence(OnlineMatchItem match) async {
+          Future<SocialCrawlPostEvidence?> resolvePostEvidence(
+            OnlineMatchItem match,
+          ) async {
             SocialCrawlPostEvidence? postEvidence;
 
             // 1. Exact platform timestamp decoders for supported public platforms
             if (match.classifiedPlatform == 'instagram') {
-              final decodedTimestamp = InstagramTimestampDecoder.decodeToIsoString(match.link);
+              final decodedTimestamp =
+                  InstagramTimestampDecoder.decodeToIsoString(match.link);
               if (decodedTimestamp != null) {
                 postEvidence = SocialCrawlPostEvidence(
                   platform: 'instagram',
@@ -171,7 +175,9 @@ class VideoAnalyzerEngine {
                 );
               }
             } else if (match.classifiedPlatform == 'tiktok') {
-              final decodedTimestamp = TikTokTimestampDecoder.decodeToIsoString(match.link);
+              final decodedTimestamp = TikTokTimestampDecoder.decodeToIsoString(
+                match.link,
+              );
               if (decodedTimestamp != null) {
                 postEvidence = SocialCrawlPostEvidence(
                   platform: 'tiktok',
@@ -188,7 +194,9 @@ class VideoAnalyzerEngine {
                     match.classifiedPlatform == 'tiktok' ||
                     match.classifiedPlatform == 'youtube')) {
               try {
-                final liveMetadata = await socialCrawlService.fetchPostMetadata(match.link);
+                final liveMetadata = await socialCrawlService.fetchPostMetadata(
+                  match.link,
+                );
                 if (liveMetadata != null) {
                   postEvidence = liveMetadata;
                 }
@@ -198,19 +206,28 @@ class VideoAnalyzerEngine {
             return postEvidence;
           }
 
-          Future<List<OnlineMatchItem>> enrichMatches(List<OnlineMatchItem> matches) async {
+          Future<List<OnlineMatchItem>> enrichMatches(
+            List<OnlineMatchItem> matches,
+          ) async {
             final enrichedMatches = <OnlineMatchItem>[];
 
             for (final match in matches) {
               final postEvidence = await resolvePostEvidence(match);
 
-              if (postEvidence != null && postEvidence.platformPostTimestamp != null) {
-                final parsed = DateTime.tryParse(postEvidence.platformPostTimestamp!);
+              final isExactMatch = match.matchType == 'exact_match';
+              if (isExactMatch &&
+                  postEvidence != null &&
+                  postEvidence.platformPostTimestamp != null) {
+                final parsed = DateTime.tryParse(
+                  postEvidence.platformPostTimestamp!,
+                );
                 if (parsed != null &&
-                    (earliestVerifiedDate == null || parsed.isBefore(earliestVerifiedDate!))) {
+                    (earliestVerifiedDate == null ||
+                        parsed.isBefore(earliestVerifiedDate!))) {
                   earliestVerifiedDate = parsed;
                   earliestVerifiedPlatform = match.classifiedPlatform;
-                  earliestVerifiedTimestamp = postEvidence.platformPostTimestamp;
+                  earliestVerifiedTimestamp =
+                      postEvidence.platformPostTimestamp;
                 }
               }
 
@@ -231,21 +248,25 @@ class VideoAnalyzerEngine {
               );
               enrichedMatches.add(enrichedMatch);
 
-              if (postEvidence != null) {
+              if (isExactMatch &&
+                  postEvidence?.platformPostTimestamp != null &&
+                  DateTime.tryParse(postEvidence!.platformPostTimestamp!) !=
+                      null) {
                 final platformCap = match.classifiedPlatform.toUpperCase();
                 final sourceDesc = match.classifiedPlatform == 'instagram'
                     ? 'Instagram Snowflake ID decoded'
                     : match.classifiedPlatform == 'tiktok'
-                        ? 'TikTok Snowflake ID decoded (video_id >> 32)'
-                        : 'YouTube public metadata verified';
+                    ? 'TikTok Snowflake ID decoded (video_id >> 32)'
+                    : 'YouTube public metadata verified';
                 allEvidence.add(
                   EvidenceItem(
                     category: 'Platform Post Evidence',
-                    finding: '$platformCap public post timestamp verified (${postEvidence.platformPostTimestamp ?? "Decoded"})',
+                    finding:
+                        '$platformCap public post timestamp verified (${postEvidence.platformPostTimestamp})',
                     strength: EvidenceStrength.strong,
                     scoreContribution: 28,
                     technicalExplanation:
-                        '$sourceDesc: Published ${postEvidence.platformPostTimestamp ?? "N/A"}. Exact verified platform timestamp.',
+                        '$sourceDesc: Published ${postEvidence.platformPostTimestamp}. Exact verified platform timestamp.',
                   ),
                 );
               }
@@ -254,19 +275,22 @@ class VideoAnalyzerEngine {
             return enrichedMatches;
           }
 
-          final exactMatches = rawSearchResult.matches.where((m) => m.matchType == 'exact_match').toList();
-          final fallbackMatches = rawSearchResult.matches.where((m) => m.matchType != 'exact_match').toList();
+          final exactMatches = rawSearchResult.matches
+              .where((m) => m.matchType == 'exact_match')
+              .toList();
+          final fallbackMatches = rawSearchResult.matches
+              .where((m) => m.matchType != 'exact_match')
+              .toList();
 
           List<OnlineMatchItem> enrichedMatches = [];
           if (exactMatches.isNotEmpty) {
             final enrichedExactMatches = await enrichMatches(exactMatches);
             enrichedMatches.addAll(enrichedExactMatches);
-
-            if (earliestVerifiedDate == null && fallbackMatches.isNotEmpty) {
-              enrichedMatches.addAll(await enrichMatches(fallbackMatches));
-            }
+            // Related matches remain visible to the user, but cannot create
+            // timestamp evidence or influence the origin platform decision.
+            enrichedMatches.addAll(fallbackMatches);
           } else {
-            enrichedMatches = await enrichMatches(rawSearchResult.matches);
+            enrichedMatches = rawSearchResult.matches;
           }
 
           onlineSearchResult = OnlineSearchResult(
@@ -276,16 +300,43 @@ class VideoAnalyzerEngine {
             matches: enrichedMatches,
           );
 
-          final summary = onlineSearchResult.summary;
+          final exactSummary = <String, int>{
+            'instagram': enrichedMatches
+                .where(
+                  (m) =>
+                      m.matchType == 'exact_match' &&
+                      m.classifiedPlatform == 'instagram',
+                )
+                .length,
+            'tiktok': enrichedMatches
+                .where(
+                  (m) =>
+                      m.matchType == 'exact_match' &&
+                      m.classifiedPlatform == 'tiktok',
+                )
+                .length,
+            'youtube': enrichedMatches
+                .where(
+                  (m) =>
+                      m.matchType == 'exact_match' &&
+                      m.classifiedPlatform == 'youtube',
+                )
+                .length,
+          };
+          final relatedCount = enrichedMatches
+              .where((m) => m.matchType != 'exact_match')
+              .length;
+          final summary = exactSummary;
           if ((summary['instagram'] ?? 0) > 0) {
             allEvidence.add(
               EvidenceItem(
                 category: 'Online Evidence',
-                finding: 'Matching online evidence detected on Instagram (${summary['instagram']} matches)',
+                finding:
+                    'Exact visual match verified on Instagram (${summary['instagram']} matches)',
                 strength: EvidenceStrength.moderate,
-                scoreContribution: (summary['instagram']! * 4).clamp(2, 8),
+                scoreContribution: (summary['instagram']! * 5).clamp(3, 10),
                 technicalExplanation:
-                    'Visual search and OCR proxy identified matching content hosted on Instagram domains.',
+                    'Only provider-marked exact visual matches can support an origin platform candidate.',
               ),
             );
           }
@@ -293,11 +344,12 @@ class VideoAnalyzerEngine {
             allEvidence.add(
               EvidenceItem(
                 category: 'Online Evidence',
-                finding: 'Matching online evidence detected on TikTok (${summary['tiktok']} matches)',
+                finding:
+                    'Exact visual match verified on TikTok (${summary['tiktok']} matches)',
                 strength: EvidenceStrength.moderate,
-                scoreContribution: (summary['tiktok']! * 4).clamp(2, 8),
+                scoreContribution: (summary['tiktok']! * 5).clamp(3, 10),
                 technicalExplanation:
-                    'Visual search and OCR proxy identified matching content hosted on TikTok domains.',
+                    'Only provider-marked exact visual matches can support an origin platform candidate.',
               ),
             );
           }
@@ -305,20 +357,37 @@ class VideoAnalyzerEngine {
             allEvidence.add(
               EvidenceItem(
                 category: 'Online Evidence',
-                finding: 'Matching online evidence detected on YouTube (${summary['youtube']} matches)',
+                finding:
+                    'Exact visual match verified on YouTube (${summary['youtube']} matches)',
                 strength: EvidenceStrength.moderate,
-                scoreContribution: (summary['youtube']! * 4).clamp(2, 8),
+                scoreContribution: (summary['youtube']! * 5).clamp(3, 10),
                 technicalExplanation:
-                    'Visual search and OCR proxy identified matching content hosted on YouTube domains.',
+                    'Only provider-marked exact visual matches can support an origin platform candidate.',
               ),
             );
           }
 
-          if (earliestVerifiedPlatform != null && earliestVerifiedTimestamp != null) {
+          if (relatedCount > 0) {
+            allEvidence.add(
+              EvidenceItem(
+                category: 'Related Content',
+                finding:
+                    '$relatedCount related visual result${relatedCount == 1 ? '' : 's'} found for manual review',
+                strength: EvidenceStrength.neutral,
+                scoreContribution: 0,
+                technicalExplanation:
+                    'Related results are shown for discovery only. They cannot select the original platform or contribute to its score.',
+              ),
+            );
+          }
+
+          if (earliestVerifiedPlatform != null &&
+              earliestVerifiedTimestamp != null) {
             allEvidence.add(
               EvidenceItem(
                 category: 'Timeline Evidence',
-                finding: 'Earliest verified timestamp points to ${earliestVerifiedPlatform!.toUpperCase()}',
+                finding:
+                    'Earliest verified timestamp points to ${earliestVerifiedPlatform!.toUpperCase()}',
                 strength: EvidenceStrength.strong,
                 scoreContribution: 32,
                 technicalExplanation:
@@ -354,6 +423,28 @@ class VideoAnalyzerEngine {
     // Stage 11: Final Multi-Signal Scoring & Confidence Calculation
     onStageChanged?.call(AnalysisStage.calculatingConfidence);
 
+    final verifiedExactTimestampMatches =
+        onlineSearchResult?.matches
+            .where(
+              (match) =>
+                  match.matchType == 'exact_match' &&
+                  match.platformEvidence?.platformPostTimestamp != null &&
+                  DateTime.tryParse(
+                        match.platformEvidence!.platformPostTimestamp!,
+                      ) !=
+                      null,
+            )
+            .toList() ??
+        <OnlineMatchItem>[];
+    verifiedExactTimestampMatches.sort(
+      (a, b) => DateTime.parse(
+        a.platformEvidence!.platformPostTimestamp!,
+      ).compareTo(DateTime.parse(b.platformEvidence!.platformPostTimestamp!)),
+    );
+    final earliestVerifiedMatch = verifiedExactTimestampMatches.isEmpty
+        ? null
+        : verifiedExactTimestampMatches.first;
+
     final technicalDetails = <String, dynamic>{
       'Container': containerResult.containerFormat,
       'Video Codec': videoResult.codec,
@@ -365,43 +456,32 @@ class VideoAnalyzerEngine {
       'Audio Sample Rate': '${audioResult.sampleRateHz} Hz',
       'Audio Channels': audioResult.channels == 2 ? 'Stereo' : 'Mono',
       'File Size': fingerprintResult.fileSizeFormatted,
-      if (onlineSearchResult != null && onlineSearchResult.isSuccess && onlineSearchResult.matches.isNotEmpty)
-        'Exact Matches Checked': '${onlineSearchResult.matches.where((m) => m.matchType == 'exact_match').length}',
-      if (onlineSearchResult != null && onlineSearchResult.isSuccess && onlineSearchResult.matches.isNotEmpty)
+      if (onlineSearchResult != null &&
+          onlineSearchResult.isSuccess &&
+          onlineSearchResult.matches.isNotEmpty)
+        'Exact Matches Checked':
+            '${onlineSearchResult.matches.where((m) => m.matchType == 'exact_match').length}',
+      if (onlineSearchResult != null &&
+          onlineSearchResult.isSuccess &&
+          onlineSearchResult.matches.isNotEmpty)
         'Search Matches Checked': '${onlineSearchResult.matches.length}',
-      if (onlineSearchResult != null &&
-          onlineSearchResult.isSuccess &&
-          onlineSearchResult.matches.any((m) => m.platformEvidence?.platformPostTimestamp != null))
-        'Earliest Verified Platform': onlineSearchResult.matches
-            .where((m) => m.platformEvidence?.platformPostTimestamp != null)
-            .reduce((a, b) {
-              final aDate = DateTime.tryParse(a.platformEvidence!.platformPostTimestamp!);
-              final bDate = DateTime.tryParse(b.platformEvidence!.platformPostTimestamp!);
-              if (aDate == null) return b;
-              if (bDate == null) return a;
-              return aDate.isBefore(bDate) ? a : b;
-            })
-            .classifiedPlatform,
-      if (onlineSearchResult != null &&
-          onlineSearchResult.isSuccess &&
-          onlineSearchResult.matches.any((m) => m.platformEvidence?.platformPostTimestamp != null))
-        'Earliest Verified Timestamp': onlineSearchResult.matches
-            .where((m) => m.platformEvidence?.platformPostTimestamp != null)
-            .map((m) => m.platformEvidence!.platformPostTimestamp!)
-            .reduce((a, b) {
-              final aDate = DateTime.tryParse(a);
-              final bDate = DateTime.tryParse(b);
-              if (aDate == null) return b;
-              if (bDate == null) return a;
-              return aDate.isBefore(bDate) ? a : b;
-            }),
+      if (earliestVerifiedMatch != null)
+        'Earliest Verified Platform': earliestVerifiedMatch.classifiedPlatform,
+      if (earliestVerifiedMatch != null)
+        'Earliest Verified Timestamp':
+            earliestVerifiedMatch.platformEvidence!.platformPostTimestamp!,
+      if (earliestVerifiedMatch != null)
+        'Origin Verification Status': 'earliest_verified_exact_match',
+      if (earliestVerifiedMatch == null)
+        'Origin Verification Status': 'local_signals_or_unverified_matches',
       if (onlineSearchResult != null && onlineSearchResult.isSuccess)
         'Online Matches': '${onlineSearchResult.totalMatches} matches found',
     };
 
     final evaluatedResult = _scoringEngine.evaluate(
       allEvidence: allEvidence,
-      possibleIntermediatePlatform: reencodingResult.possibleIntermediatePlatform,
+      possibleIntermediatePlatform:
+          reencodingResult.possibleIntermediatePlatform,
       intermediateReason: reencodingResult.intermediateReason,
       technicalDetails: technicalDetails,
     );
@@ -411,7 +491,8 @@ class VideoAnalyzerEngine {
       platformName: evaluatedResult.platformName,
       confidence: evaluatedResult.confidence,
       confidenceLevel: evaluatedResult.confidenceLevel,
-      possibleIntermediatePlatform: evaluatedResult.possibleIntermediatePlatform,
+      possibleIntermediatePlatform:
+          evaluatedResult.possibleIntermediatePlatform,
       intermediateReason: evaluatedResult.intermediateReason,
       evidenceList: evaluatedResult.evidenceList,
       conflictingEvidenceList: evaluatedResult.conflictingEvidenceList,
