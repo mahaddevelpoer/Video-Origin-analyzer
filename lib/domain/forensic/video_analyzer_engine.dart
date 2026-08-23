@@ -152,7 +152,9 @@ class VideoAnalyzerEngine {
           ocrQuery: enableOcrSearch ? ocrQuery : null,
         );
 
-        if (rawSearchResult.isSuccess && rawSearchResult.matches.isNotEmpty) {
+        if (rawSearchResult.isSuccess &&
+            (rawSearchResult.matches.isNotEmpty ||
+                rawSearchResult.aiAnalysis != null)) {
           String? earliestVerifiedPlatform;
           String? earliestVerifiedTimestamp;
           DateTime? earliestVerifiedDate;
@@ -291,6 +293,7 @@ class VideoAnalyzerEngine {
             totalMatches: rawSearchResult.totalMatches,
             summary: rawSearchResult.summary,
             matches: enrichedMatches,
+            aiAnalysis: rawSearchResult.aiAnalysis,
           );
 
           final exactSummary = <String, int>{
@@ -391,6 +394,54 @@ class VideoAnalyzerEngine {
                     : 'No exact visual match timestamp was available, so the oldest direct platform URL timestamp from visual/search results was used as a calibrated origin clue.',
               ),
             );
+          }
+
+          final aiAnalysis = rawSearchResult.aiAnalysis;
+          if (aiAnalysis != null && aiAnalysis.isAvailable) {
+            final aiPlatform = aiAnalysis.likelyPlatform;
+            final aiHasKnownPlatform =
+                aiPlatform != 'unknown' && aiPlatform != 'other';
+            final agreesWithVerified =
+                earliestVerifiedPlatform != null &&
+                aiPlatform == earliestVerifiedPlatform;
+            final hasExactSupport =
+                aiHasKnownPlatform && (exactSummary[aiPlatform] ?? 0) > 0;
+            final aiScore = agreesWithVerified
+                ? 6
+                : hasExactSupport
+                ? 4
+                : 0;
+
+            allEvidence.add(
+              EvidenceItem(
+                category: 'AI Evidence Review',
+                finding: aiHasKnownPlatform
+                    ? 'Gemini AI review points toward ${aiPlatform.toUpperCase()} (${aiAnalysis.confidence}% AI confidence)'
+                    : 'Gemini AI review did not identify a confident platform',
+                strength: aiScore > 0
+                    ? EvidenceStrength.moderate
+                    : EvidenceStrength.neutral,
+                scoreContribution: aiScore,
+                technicalExplanation:
+                    '${aiAnalysis.summary} AI evidence is calibrated as supporting context only and cannot override verified timestamp evidence.',
+              ),
+            );
+
+            if (aiHasKnownPlatform &&
+                earliestVerifiedPlatform != null &&
+                aiPlatform != earliestVerifiedPlatform) {
+              allEvidence.add(
+                EvidenceItem(
+                  category: 'AI Conflict Review',
+                  finding:
+                      'Gemini suggested ${aiPlatform.toUpperCase()}, but verified timestamp evidence points to ${earliestVerifiedPlatform!.toUpperCase()}',
+                  strength: EvidenceStrength.contradictory,
+                  scoreContribution: 0,
+                  technicalExplanation:
+                      'The final result keeps the verified public timestamp as the stronger evidence source. Gemini conflict is shown for transparency.',
+                ),
+              );
+            }
           }
         }
       } catch (e) {

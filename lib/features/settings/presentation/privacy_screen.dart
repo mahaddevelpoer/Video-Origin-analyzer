@@ -25,7 +25,11 @@ class PrivacyScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: AppColors.youtubeRed),
                     ),
-                    child: const Icon(Icons.security, color: AppColors.youtubeRed, size: 28),
+                    child: const Icon(
+                      Icons.security,
+                      color: AppColors.youtubeRed,
+                      size: 28,
+                    ),
                   ),
                   const SizedBox(width: 14),
                   const Expanded(
@@ -61,9 +65,9 @@ class PrivacyScreen extends StatelessWidget {
                     'All video metadata, container parsing, codec inspection, audio analysis, visual signatures, and re-encoding detection run 100% locally on your physical device. Original video files NEVER leave your phone.',
               ),
               _buildPrivacyPoint(
-                title: '2. Online Evidence Data Flow (SerpApi Proxy)',
+                title: '2. Online Evidence Data Flow (Gemini + Lens Proxy)',
                 description:
-                    'When Online Visual Search is enabled, a single selected representative video frame (compressed JPEG < 500KB) is sent in-memory through our secure Supabase Edge Function proxy to SerpApi Google Lens. The frame is processed in memory to fetch matching web links and is IMMEDIATELY discarded. Frames are NEVER stored permanently in Supabase, databases, or cloud storage.',
+                    'When Online Visual Search is enabled, up to three selected representative video frames (compressed JPEG < 500KB each) are sent in-memory through our secure Supabase AI visual-search proxy. SerpApi Google Lens checks exact/related web matches, while Gemini reviews the selected frames, OCR clues, and candidate links. Frames are processed in memory and discarded; videos, frames, and thumbnails are not permanently stored in Supabase, databases, or cloud storage.',
               ),
               _buildPrivacyPoint(
                 title: '3. No Permanent Database / No Cloud Storage',
@@ -86,7 +90,11 @@ class PrivacyScreen extends StatelessWidget {
                 ),
                 child: const Text(
                   AppConfig.privacyStatement,
-                  style: TextStyle(fontSize: 12, color: AppColors.textDark, height: 1.4),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textDark,
+                    height: 1.4,
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
@@ -103,7 +111,10 @@ class PrivacyScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildPrivacyPoint({required String title, required String description}) {
+  Widget _buildPrivacyPoint({
+    required String title,
+    required String description,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 18),
       child: Column(

@@ -17,7 +17,7 @@ class OnlineVisualSearchService {
   OnlineVisualSearchService({FrameExtractorService? frameExtractor})
     : _frameExtractor = frameExtractor ?? FrameExtractorService();
 
-  /// Searches representative frames and only stops early for repeated exact matches.
+  /// Searches up to three representative frames through the hybrid AI proxy.
   Future<OnlineSearchResult> performVisualSearch(
     InputVideoPayload payload, {
     String? ocrQuery,
@@ -32,91 +32,14 @@ class OnlineVisualSearchService {
         );
       }
 
-      OnlineSearchResult lastResult = OnlineSearchResult.failure(
-        message: 'Visual search initialization pending.',
+      debugPrint(
+        'Querying Supabase hybrid visual-search for ${frames.length} frame(s)...',
       );
 
-      final accumulatedMatches = <OnlineMatchItem>[];
-      final exactPlatformFrequency = <String, int>{
-        'instagram': 0,
-        'tiktok': 0,
-        'youtube': 0,
-        'other': 0,
-      };
-
-      for (final frame in frames) {
-        debugPrint(
-          'Querying Supabase Edge Function visual-search for ${frame.position.name} frame...',
-        );
-
-        final result = await _sendFrameToEdgeFunction(
-          frame.base64Jpeg,
-          ocrQuery: ocrQuery,
-        );
-        lastResult = result;
-
-        if (result.isSuccess && result.matches.isNotEmpty) {
-          accumulatedMatches.addAll(result.matches);
-          for (final match in result.matches.where(
-            (item) => item.matchType == 'exact_match',
-          )) {
-            final key = match.classifiedPlatform;
-            if (exactPlatformFrequency.containsKey(key)) {
-              exactPlatformFrequency[key] =
-                  (exactPlatformFrequency[key] ?? 0) + 1;
-            } else {
-              exactPlatformFrequency['other'] =
-                  (exactPlatformFrequency['other'] ?? 0) + 1;
-            }
-          }
-
-          final hasDominant = exactPlatformFrequency.entries
-              .where((e) => e.key != 'other')
-              .any((e) => e.value >= 2);
-
-          if (hasDominant) {
-            debugPrint(
-              'Repeated exact visual match detected across frames. Stopping further searches.',
-            );
-            break;
-          }
-        }
-
-        if (result.errorCode == 'HTTP_404' ||
-            result.errorCode == 'MISSING_SERPAPI_KEY' ||
-            result.errorCode == 'SERPAPI_UPLOAD_FAILED') {
-          break;
-        }
-      }
-
-      if (accumulatedMatches.isNotEmpty) {
-        final uniqueMatches = <String, OnlineMatchItem>{};
-        for (final match in accumulatedMatches) {
-          final key = match.link.isNotEmpty
-              ? match.link
-              : '${match.title}|${match.classifiedPlatform}';
-          final existing = uniqueMatches[key];
-          if (existing == null ||
-              (match.matchType == 'exact_match' &&
-                  existing.matchType != 'exact_match')) {
-            uniqueMatches[key] = match;
-          }
-        }
-        final matches = uniqueMatches.values.toList();
-        return OnlineSearchResult(
-          status: 'success',
-          totalMatches: matches.length,
-          summary: {
-            for (final platform in exactPlatformFrequency.keys)
-              platform: matches
-                  .where((m) => m.classifiedPlatform == platform)
-                  .length,
-          },
-          matches: matches,
-        );
-      }
-
-      return lastResult;
+      return _sendFramesToEdgeFunction(
+        frames.map((frame) => frame.base64Jpeg).take(3).toList(),
+        ocrQuery: ocrQuery,
+      );
     } catch (e) {
       debugPrint('OnlineVisualSearchService Exception: $e');
       return OnlineSearchResult.failure(
@@ -127,8 +50,8 @@ class OnlineVisualSearchService {
     }
   }
 
-  Future<OnlineSearchResult> _sendFrameToEdgeFunction(
-    String base64Jpeg, {
+  Future<OnlineSearchResult> _sendFramesToEdgeFunction(
+    List<String> base64Jpegs, {
     String? ocrQuery,
   }) async {
     try {
@@ -140,13 +63,13 @@ class OnlineVisualSearchService {
               'Accept': 'application/json',
             },
             body: jsonEncode({
-              'image_base64': base64Jpeg,
-              'max_results': 10,
+              'image_frames_base64': base64Jpegs,
+              'max_results': 15,
               if (ocrQuery != null && ocrQuery.isNotEmpty)
                 'ocr_query': ocrQuery,
             }),
           )
-          .timeout(const Duration(seconds: 12));
+          .timeout(const Duration(seconds: 25));
 
       if (response.statusCode == 200) {
         final jsonMap = jsonDecode(response.body) as Map<String, dynamic>;
@@ -170,7 +93,7 @@ class OnlineVisualSearchService {
       }
     } on TimeoutException {
       return OnlineSearchResult.failure(
-        message: 'Supabase Edge Function timed out after 12s.',
+        message: 'Supabase AI visual-search proxy timed out after 25s.',
         code: 'TIMEOUT',
       );
     } catch (e) {

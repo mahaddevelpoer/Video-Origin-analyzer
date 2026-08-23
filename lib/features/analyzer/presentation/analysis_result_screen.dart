@@ -110,6 +110,24 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
                 pw.Text(
                   'Possible Intermediate Processing: ${widget.result.possibleIntermediatePlatform}',
                 ),
+              if (widget.result.onlineSearchResult?.aiAnalysis != null) ...[
+                pw.SizedBox(height: 14),
+                pw.Text(
+                  'AI EVIDENCE REVIEW',
+                  style: pw.TextStyle(
+                    fontSize: 12,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.SizedBox(height: 6),
+                pw.Text(widget.result.onlineSearchResult!.aiAnalysis!.summary),
+                pw.Text(
+                  'AI Platform: ${widget.result.onlineSearchResult!.aiAnalysis!.likelyPlatform.toUpperCase()} (${widget.result.onlineSearchResult!.aiAnalysis!.confidence}%)',
+                ),
+                ...widget.result.onlineSearchResult!.aiAnalysis!.conflicts.map(
+                  (item) => pw.Text('Conflict: $item'),
+                ),
+              ],
               pw.SizedBox(height: 16),
               pw.Text(
                 'WHY DID WE REACH THIS CONCLUSION?',
@@ -131,7 +149,7 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
                   widget.result.onlineSearchResult!.matches.isNotEmpty) ...[
                 pw.SizedBox(height: 14),
                 pw.Text(
-                  'ONLINE EVIDENCE (SERPAPI GOOGLE LENS PROXY)',
+                  'ONLINE EVIDENCE (GEMINI + SERPAPI LENS PROXY)',
                   style: pw.TextStyle(
                     fontSize: 12,
                     fontWeight: pw.FontWeight.bold,
@@ -522,6 +540,15 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
 
               const SizedBox(height: 20),
 
+              if (onlineRes?.aiAnalysis != null) ...[
+                _buildAiEvidenceCard(
+                  onlineRes!.aiAnalysis!,
+                  _showIntermediateDetails,
+                  isDark,
+                ),
+                const SizedBox(height: 20),
+              ],
+
               // ==========================================
               // 3. KEY EVIDENCE (Simplified vs Deep Dive)
               // ==========================================
@@ -866,6 +893,173 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildAiEvidenceCard(
+    AiEvidenceAnalysis ai,
+    bool isIntermediate,
+    bool isDark,
+  ) {
+    final cardBg =
+        Theme.of(context).cardTheme.color ??
+        (isDark ? const Color(0xFF1E1E1E) : AppColors.lightSurface);
+    final borderColor = Theme.of(context).dividerColor;
+    final textColor =
+        Theme.of(context).textTheme.bodyLarge?.color ?? AppColors.textDark;
+    final isAvailable = ai.isAvailable;
+    final badgeColor = isAvailable
+        ? AppColors.strengthModerate
+        : AppColors.strengthNeutral;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.auto_awesome, color: badgeColor, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'AI EVIDENCE REVIEW',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                    color: textColor,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: badgeColor.withAlpha(24),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: badgeColor.withAlpha(120)),
+                ),
+                child: Text(
+                  isAvailable ? '${ai.confidence}% AI' : 'OFFLINE',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: badgeColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            ai.summary,
+            style: TextStyle(fontSize: 13, height: 1.35, color: textColor),
+          ),
+          if (isAvailable) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                _buildAiChip(
+                  'Platform: ${ai.likelyPlatform.toUpperCase()}',
+                  AppColors.youtubeRed,
+                ),
+                _buildAiChip('Risk: ${ai.riskLevel.toUpperCase()}', badgeColor),
+                _buildAiChip(ai.model, AppColors.textMuted),
+              ],
+            ),
+          ],
+          if (isIntermediate && isAvailable) ...[
+            if (ai.evidenceReasons.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _buildAiList('Reasons', ai.evidenceReasons, textColor),
+            ],
+            if (ai.conflicts.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _buildAiList(
+                'Conflicts',
+                ai.conflicts,
+                AppColors.strengthContradictory,
+              ),
+            ],
+            if (ai.recommendedSearchQueries.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _buildAiList(
+                'Recommended searches',
+                ai.recommendedSearchQueries,
+                textColor,
+              ),
+            ],
+            if (ai.sourceUrls.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _buildAiList('AI sources', ai.sourceUrls, AppColors.textMuted),
+            ],
+          ],
+          if (!isAvailable && ai.errorCode != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Code: ${ai.errorCode}',
+              style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAiChip(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withAlpha(18),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withAlpha(90)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          color: color,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAiList(String title, List<String> items, Color color) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title.toUpperCase(),
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            color: color,
+            letterSpacing: 0.6,
+          ),
+        ),
+        const SizedBox(height: 4),
+        ...items.map(
+          (item) => Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(
+              item,
+              style: const TextStyle(
+                fontSize: 11,
+                color: AppColors.textMuted,
+                height: 1.3,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

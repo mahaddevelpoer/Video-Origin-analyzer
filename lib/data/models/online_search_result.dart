@@ -1,5 +1,99 @@
 enum DateConfidence { high, medium, low, unknown }
 
+class AiEvidenceAnalysis {
+  final String status; // success | unavailable
+  final String model;
+  final String summary;
+  final String likelyPlatform;
+  final int confidence;
+  final List<String> evidenceReasons;
+  final List<String> conflicts;
+  final List<String> recommendedSearchQueries;
+  final List<String> sourceUrls;
+  final String riskLevel; // low | medium | high | unknown
+  final String? errorCode;
+
+  const AiEvidenceAnalysis({
+    required this.status,
+    required this.model,
+    required this.summary,
+    required this.likelyPlatform,
+    required this.confidence,
+    required this.evidenceReasons,
+    required this.conflicts,
+    required this.recommendedSearchQueries,
+    required this.sourceUrls,
+    required this.riskLevel,
+    this.errorCode,
+  });
+
+  bool get isAvailable => status == 'success';
+
+  Map<String, dynamic> toJson() => {
+    'status': status,
+    'model': model,
+    'summary': summary,
+    'likely_platform': likelyPlatform,
+    'confidence': confidence,
+    'evidence_reasons': evidenceReasons,
+    'conflicts': conflicts,
+    'recommended_search_queries': recommendedSearchQueries,
+    'source_urls': sourceUrls,
+    'risk_level': riskLevel,
+    if (errorCode != null) 'error_code': errorCode,
+  };
+
+  factory AiEvidenceAnalysis.fromJson(Map<String, dynamic> json) {
+    String normalizePlatform(dynamic value) {
+      final platform = (value as String? ?? 'unknown').toLowerCase();
+      const allowed = {
+        'instagram',
+        'tiktok',
+        'youtube',
+        'facebook',
+        'other',
+        'unknown',
+      };
+      return allowed.contains(platform) ? platform : 'unknown';
+    }
+
+    String normalizeRisk(dynamic value) {
+      final risk = (value as String? ?? 'unknown').toLowerCase();
+      const allowed = {'low', 'medium', 'high', 'unknown'};
+      return allowed.contains(risk) ? risk : 'unknown';
+    }
+
+    List<String> stringList(dynamic value) {
+      if (value is! List) return const [];
+      return value
+          .whereType<String>()
+          .where((item) => item.trim().isNotEmpty)
+          .map((item) => item.trim())
+          .take(8)
+          .toList();
+    }
+
+    final rawConfidence = json['confidence'];
+    final confidence = rawConfidence is num
+        ? rawConfidence.round().clamp(0, 100).toInt()
+        : 0;
+
+    return AiEvidenceAnalysis(
+      status: json['status'] as String? ?? 'unavailable',
+      model: json['model'] as String? ?? 'gemini-2.5-flash-lite',
+      summary: json['summary'] as String? ?? 'AI evidence review unavailable.',
+      likelyPlatform: normalizePlatform(json['likely_platform']),
+      confidence: confidence,
+      evidenceReasons: stringList(json['evidence_reasons']),
+      conflicts: stringList(json['conflicts']),
+      recommendedSearchQueries: stringList(json['recommended_search_queries']),
+      sourceUrls: stringList(json['source_urls']),
+      riskLevel: normalizeRisk(json['risk_level']),
+      errorCode: json['error_code'] as String?,
+    );
+  }
+}
+
 class SocialCrawlPostEvidence {
   final String platform;
   final String url;
@@ -28,18 +122,18 @@ class SocialCrawlPostEvidence {
   });
 
   Map<String, dynamic> toJson() => {
-        'platform': platform,
-        'url': url,
-        'platform_post_timestamp': platformPostTimestamp,
-        'author_username': authorUsername,
-        'author_display_name': authorDisplayName,
-        'caption_text': captionText,
-        'likes_count': likesCount,
-        'comments_count': commentsCount,
-        'views_count': viewsCount,
-        'shares_count': sharesCount,
-        'retrieved_at': retrievedAt,
-      };
+    'platform': platform,
+    'url': url,
+    'platform_post_timestamp': platformPostTimestamp,
+    'author_username': authorUsername,
+    'author_display_name': authorDisplayName,
+    'caption_text': captionText,
+    'likes_count': likesCount,
+    'comments_count': commentsCount,
+    'views_count': viewsCount,
+    'shares_count': sharesCount,
+    'retrieved_at': retrievedAt,
+  };
 
   factory SocialCrawlPostEvidence.fromJson(Map<String, dynamic> json) {
     // SocialCrawl unified response: { success, platform, data: { author, engagement, metadata } }
@@ -70,11 +164,14 @@ class OnlineMatchItem {
   final String title;
   final String link;
   final String domain;
-  final String classifiedPlatform; // 'instagram' | 'tiktok' | 'youtube' | 'other'
+  final String
+  classifiedPlatform; // 'instagram' | 'tiktok' | 'youtube' | 'other'
   final String? thumbnail;
   final String? source;
-  final String matchType; // 'exact_match' | 'visual_match' | 'google_search' | 'about_this_image'
-  final String? date; // ONLINE SEARCH DATE EVIDENCE string (e.g., 'Aug 10, 2026')
+  final String
+  matchType; // 'exact_match' | 'visual_match' | 'google_search' | 'about_this_image'
+  final String?
+  date; // ONLINE SEARCH DATE EVIDENCE string (e.g., 'Aug 10, 2026')
   final DateConfidence dateConfidence;
   final String? snippet;
   final String? ocrQuery;
@@ -97,20 +194,21 @@ class OnlineMatchItem {
   });
 
   Map<String, dynamic> toJson() => {
-        'position': position,
-        'title': title,
-        'link': link,
-        'domain': domain,
-        'classified_platform': classifiedPlatform,
-        'thumbnail': thumbnail,
-        'source': source,
-        'match_type': matchType,
-        'date': date,
-        'date_confidence': dateConfidence.name,
-        'snippet': snippet,
-        'ocr_query': ocrQuery,
-        if (platformEvidence != null) 'platform_evidence': platformEvidence!.toJson(),
-      };
+    'position': position,
+    'title': title,
+    'link': link,
+    'domain': domain,
+    'classified_platform': classifiedPlatform,
+    'thumbnail': thumbnail,
+    'source': source,
+    'match_type': matchType,
+    'date': date,
+    'date_confidence': dateConfidence.name,
+    'snippet': snippet,
+    'ocr_query': ocrQuery,
+    if (platformEvidence != null)
+      'platform_evidence': platformEvidence!.toJson(),
+  };
 
   factory OnlineMatchItem.fromJson(Map<String, dynamic> json) {
     // Classify domain directly from actual URL domain name
@@ -120,7 +218,8 @@ class OnlineMatchItem {
       platform = 'instagram';
     } else if (linkUrl.contains('tiktok.com')) {
       platform = 'tiktok';
-    } else if (linkUrl.contains('youtube.com') || linkUrl.contains('youtu.be')) {
+    } else if (linkUrl.contains('youtube.com') ||
+        linkUrl.contains('youtu.be')) {
       platform = 'youtube';
     }
 
@@ -131,7 +230,9 @@ class OnlineMatchItem {
     );
 
     final platformEv = json['platform_evidence'] != null
-        ? SocialCrawlPostEvidence.fromJson(Map<String, dynamic>.from(json['platform_evidence']))
+        ? SocialCrawlPostEvidence.fromJson(
+            Map<String, dynamic>.from(json['platform_evidence']),
+          )
         : null;
 
     return OnlineMatchItem(
@@ -139,7 +240,9 @@ class OnlineMatchItem {
       title: json['title'] as String? ?? 'Related Visual Match',
       link: json['link'] as String? ?? '',
       domain: json['domain'] as String? ?? 'unknown',
-      classifiedPlatform: platform != 'other' ? platform : (json['classified_platform'] as String? ?? 'other'),
+      classifiedPlatform: platform != 'other'
+          ? platform
+          : (json['classified_platform'] as String? ?? 'other'),
       thumbnail: json['thumbnail'] as String?,
       source: json['source'] as String?,
       matchType: json['match_type'] as String? ?? 'visual_match',
@@ -157,6 +260,7 @@ class OnlineSearchResult {
   final int totalMatches;
   final Map<String, int> summary;
   final List<OnlineMatchItem> matches;
+  final AiEvidenceAnalysis? aiAnalysis;
   final String? errorMessage;
   final String? errorCode;
 
@@ -165,6 +269,7 @@ class OnlineSearchResult {
     required this.totalMatches,
     required this.summary,
     required this.matches,
+    this.aiAnalysis,
     this.errorMessage,
     this.errorCode,
   });
@@ -175,7 +280,13 @@ class OnlineSearchResult {
     return OnlineSearchResult(
       status: 'failed',
       totalMatches: 0,
-      summary: const {'instagram': 0, 'tiktok': 0, 'youtube': 0, 'other': 0},
+      summary: const {
+        'instagram': 0,
+        'tiktok': 0,
+        'youtube': 0,
+        'facebook': 0,
+        'other': 0,
+      },
       matches: const [],
       errorMessage: message,
       errorCode: code,
@@ -183,13 +294,14 @@ class OnlineSearchResult {
   }
 
   Map<String, dynamic> toJson() => {
-        'status': status,
-        'total_matches': totalMatches,
-        'summary': summary,
-        'matches': matches.map((m) => m.toJson()).toList(),
-        if (errorMessage != null) 'error_message': errorMessage,
-        if (errorCode != null) 'error_code': errorCode,
-      };
+    'status': status,
+    'total_matches': totalMatches,
+    'summary': summary,
+    'matches': matches.map((m) => m.toJson()).toList(),
+    if (aiAnalysis != null) 'ai_analysis': aiAnalysis!.toJson(),
+    if (errorMessage != null) 'error_message': errorMessage,
+    if (errorCode != null) 'error_code': errorCode,
+  };
 
   factory OnlineSearchResult.fromJson(Map<String, dynamic> json) {
     final rawSummary = json['summary'] as Map<String, dynamic>? ?? {};
@@ -197,6 +309,7 @@ class OnlineSearchResult {
       'instagram': rawSummary['instagram'] as int? ?? 0,
       'tiktok': rawSummary['tiktok'] as int? ?? 0,
       'youtube': rawSummary['youtube'] as int? ?? 0,
+      'facebook': rawSummary['facebook'] as int? ?? 0,
       'other': rawSummary['other'] as int? ?? 0,
     };
 
@@ -204,12 +317,18 @@ class OnlineSearchResult {
     final matchList = rawMatches
         .map((e) => OnlineMatchItem.fromJson(e as Map<String, dynamic>))
         .toList();
+    final rawAiAnalysis = json['ai_analysis'];
 
     return OnlineSearchResult(
       status: json['status'] as String? ?? 'unknown',
       totalMatches: json['total_matches'] as int? ?? matchList.length,
       summary: summaryMap,
       matches: matchList,
+      aiAnalysis: rawAiAnalysis is Map
+          ? AiEvidenceAnalysis.fromJson(
+              Map<String, dynamic>.from(rawAiAnalysis),
+            )
+          : null,
       errorMessage: json['error'] as String?,
       errorCode: json['code'] as String?,
     );

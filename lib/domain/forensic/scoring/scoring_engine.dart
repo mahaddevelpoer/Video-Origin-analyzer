@@ -192,7 +192,9 @@ class ForensicScoringEngine {
 
     for (final item in allEvidence) {
       final finding = item.finding.toLowerCase();
-      if (finding.contains(platformName) ||
+      if (item.strength == EvidenceStrength.contradictory) {
+        conflictingEvidence.add(item);
+      } else if (finding.contains(platformName) ||
           item.category == 'Timeline Evidence') {
         primaryEvidence.add(item);
       } else if (otherPlatformNames.any(finding.contains)) {

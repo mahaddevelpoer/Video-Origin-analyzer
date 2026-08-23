@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_origin_analyzer/data/local/daily_usage_service.dart';
 import 'package:video_origin_analyzer/data/models/evidence_item.dart';
+import 'package:video_origin_analyzer/data/models/online_search_result.dart';
 import 'package:video_origin_analyzer/data/services/local_ocr_service.dart';
 import 'package:video_origin_analyzer/data/utils/link_timestamp_resolver.dart';
 import 'package:video_origin_analyzer/data/utils/instagram_timestamp_decoder.dart';
@@ -234,6 +235,133 @@ void main() {
         expect(result.confidenceLevel.name, 'moderate');
       },
     );
+
+    test('Does not let Gemini-only platform guess become high confidence', () {
+      final engine = ForensicScoringEngine();
+
+      final result = engine.evaluate(
+        allEvidence: const [
+          EvidenceItem(
+            category: 'AI Evidence Review',
+            finding: 'Gemini AI review points toward INSTAGRAM',
+            strength: EvidenceStrength.neutral,
+            scoreContribution: 0,
+            technicalExplanation: 'AI-only context without verified timestamp.',
+          ),
+        ],
+        possibleIntermediatePlatform: null,
+        intermediateReason: null,
+        technicalDetails: {
+          'Origin Verification Status': 'local_signals_or_unverified_matches',
+        },
+      );
+
+      expect(result.platformId, 'unknown');
+      expect(result.confidenceLevel.name, 'unknown');
+    });
+
+    test('Verified timestamp beats conflicting Gemini platform review', () {
+      final engine = ForensicScoringEngine();
+
+      final result = engine.evaluate(
+        allEvidence: const [
+          EvidenceItem(
+            category: 'AI Conflict Review',
+            finding:
+                'Gemini suggested TIKTOK, but verified timestamp evidence points to INSTAGRAM',
+            strength: EvidenceStrength.contradictory,
+            scoreContribution: 0,
+            technicalExplanation: 'Conflict transparency.',
+          ),
+        ],
+        possibleIntermediatePlatform: null,
+        intermediateReason: null,
+        technicalDetails: {
+          'Earliest Verified Platform': 'instagram',
+          'Earliest Verified Timestamp': '2026-08-04T12:00:00.000Z',
+          'Origin Verification Status': 'earliest_verified_exact_match',
+        },
+      );
+
+      expect(result.platformId, 'instagram');
+      expect(result.confidenceLevel.name, 'moderate');
+      expect(result.conflictingEvidenceList.length, 1);
+    });
+  });
+
+  group('OnlineSearchResult AI Parsing Tests', () {
+    test('Parses legacy visual-search response without ai_analysis', () {
+      final result = OnlineSearchResult.fromJson({
+        'status': 'success',
+        'total_matches': 0,
+        'summary': {'instagram': 0, 'tiktok': 0, 'youtube': 0, 'other': 0},
+        'matches': [],
+      });
+
+      expect(result.aiAnalysis, isNull);
+      expect(result.matches, isEmpty);
+    });
+
+    test('Parses successful Gemini evidence review', () {
+      final result = OnlineSearchResult.fromJson({
+        'status': 'success',
+        'total_matches': 1,
+        'summary': {'instagram': 1, 'tiktok': 0, 'youtube': 0, 'other': 0},
+        'matches': [],
+        'ai_analysis': {
+          'status': 'success',
+          'model': 'gemini-2.5-flash-lite',
+          'summary': 'AI found Instagram-style evidence.',
+          'likely_platform': 'instagram',
+          'confidence': 64,
+          'evidence_reasons': ['Direct Instagram candidate link.'],
+          'conflicts': ['No exact timestamp yet.'],
+          'recommended_search_queries': ['creator reel title instagram'],
+          'source_urls': ['https://www.instagram.com/reel/example/'],
+          'risk_level': 'medium',
+        },
+      });
+
+      expect(result.aiAnalysis, isNotNull);
+      expect(result.aiAnalysis!.isAvailable, true);
+      expect(result.aiAnalysis!.likelyPlatform, 'instagram');
+      expect(result.aiAnalysis!.confidence, 64);
+      expect(result.aiAnalysis!.conflicts.length, 1);
+    });
+
+    test('Parses unavailable Gemini response safely', () {
+      final result = OnlineSearchResult.fromJson({
+        'status': 'success',
+        'total_matches': 0,
+        'summary': {'instagram': 0, 'tiktok': 0, 'youtube': 0, 'other': 0},
+        'matches': [],
+        'ai_analysis': {
+          'status': 'unavailable',
+          'summary': 'Gemini AI key is not configured.',
+          'likely_platform': 'instagram',
+          'confidence': 120,
+          'risk_level': 'extreme',
+          'error_code': 'MISSING_GEMINI_KEY',
+        },
+      });
+
+      expect(result.aiAnalysis!.isAvailable, false);
+      expect(result.aiAnalysis!.confidence, 100);
+      expect(result.aiAnalysis!.riskLevel, 'unknown');
+    });
+
+    test('Rejects malformed AI platform value safely', () {
+      final analysis = AiEvidenceAnalysis.fromJson({
+        'status': 'success',
+        'summary': 'Malformed platform test.',
+        'likely_platform': 'definitely_instagram',
+        'confidence': -5,
+        'risk_level': 'low',
+      });
+
+      expect(analysis.likelyPlatform, 'unknown');
+      expect(analysis.confidence, 0);
+    });
   });
 
   group('LinkTimestampResolver Tests', () {
