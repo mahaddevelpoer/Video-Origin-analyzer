@@ -4,6 +4,7 @@ class AiEvidenceAnalysis {
   final String status; // success | unavailable
   final String model;
   final String summary;
+  final String contextAnalysis;
   final String likelyPlatform;
   final int confidence;
   final List<String> evidenceReasons;
@@ -17,6 +18,7 @@ class AiEvidenceAnalysis {
     required this.status,
     required this.model,
     required this.summary,
+    required this.contextAnalysis,
     required this.likelyPlatform,
     required this.confidence,
     required this.evidenceReasons,
@@ -33,6 +35,7 @@ class AiEvidenceAnalysis {
     'status': status,
     'model': model,
     'summary': summary,
+    'context_analysis': contextAnalysis,
     'likely_platform': likelyPlatform,
     'confidence': confidence,
     'evidence_reasons': evidenceReasons,
@@ -82,6 +85,7 @@ class AiEvidenceAnalysis {
       status: json['status'] as String? ?? 'unavailable',
       model: json['model'] as String? ?? 'gemini-2.5-flash-lite',
       summary: json['summary'] as String? ?? 'AI evidence review unavailable.',
+      contextAnalysis: json['context_analysis'] as String? ?? 'Visual context analysis is unavailable.',
       likelyPlatform: normalizePlatform(json['likely_platform']),
       confidence: confidence,
       evidenceReasons: stringList(json['evidence_reasons']),

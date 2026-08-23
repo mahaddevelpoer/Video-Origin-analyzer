@@ -42,6 +42,7 @@ interface AiAnalysis {
   status: "success" | "unavailable";
   model: string;
   summary: string;
+  context_analysis: string;
   likely_platform: Platform | "unknown";
   confidence: number;
   evidence_reasons: string[];
@@ -101,6 +102,7 @@ function unavailableAi(errorCode: string, message: string): AiAnalysis {
     status: "unavailable",
     model: GEMINI_MODEL,
     summary: message,
+    context_analysis: "Visual context analysis is unavailable because the AI service could not be reached.",
     likely_platform: "unknown",
     confidence: 0,
     evidence_reasons: [],
@@ -343,6 +345,7 @@ Analyze the supplied video frame(s), OCR text, and candidate web matches.
 Return ONLY valid JSON with exactly these fields:
 {
   "summary": "one beginner-friendly sentence",
+  "context_analysis": "Detailed professional narrative explaining the visual context (what is happening, aspect ratio, fonts/UI styles, overlay text) and how this relates to the likely platform.",
   "likely_platform": "instagram|tiktok|youtube|facebook|other|unknown",
   "confidence": 0-100,
   "evidence_reasons": ["short concrete reason"],
@@ -356,6 +359,7 @@ Rules:
 - Prefer direct platform URLs, exact visual matches, OCR handles, captions, timestamps, and cited source URLs.
 - If evidence is weak, set likely_platform to "unknown" or confidence below 45.
 - If candidate matches conflict, describe the conflict instead of forcing certainty.
+- The context_analysis should be written like a professional forensic report summary.
 - Keep arrays concise.
 OCR text/query: ${ocrQuery || "none"}
 Candidate matches JSON: ${JSON.stringify(candidateMatches)}
@@ -418,6 +422,10 @@ Candidate matches JSON: ${JSON.stringify(candidateMatches)}
         typeof parsed.summary === "string" && parsed.summary.trim().length > 0
           ? parsed.summary.trim()
           : "AI reviewed the visual and web evidence.",
+      context_analysis:
+        typeof parsed.context_analysis === "string" && parsed.context_analysis.trim().length > 0
+          ? parsed.context_analysis.trim()
+          : "Context analysis not provided.",
       likely_platform: normalizePlatform(parsed.likely_platform),
       confidence: clampConfidence(parsed.confidence),
       evidence_reasons: normalizeStringList(parsed.evidence_reasons),

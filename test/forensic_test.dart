@@ -312,6 +312,7 @@ void main() {
           'status': 'success',
           'model': 'gemini-2.5-flash-lite',
           'summary': 'AI found Instagram-style evidence.',
+          'context_analysis': 'The visual overlay uses a font style synonymous with Instagram Reels.',
           'likely_platform': 'instagram',
           'confidence': 64,
           'evidence_reasons': ['Direct Instagram candidate link.'],
@@ -327,6 +328,7 @@ void main() {
       expect(result.aiAnalysis!.likelyPlatform, 'instagram');
       expect(result.aiAnalysis!.confidence, 64);
       expect(result.aiAnalysis!.conflicts.length, 1);
+      expect(result.aiAnalysis!.contextAnalysis, contains('synonymous with Instagram'));
     });
 
     test('Parses unavailable Gemini response safely', () {
@@ -338,6 +340,7 @@ void main() {
         'ai_analysis': {
           'status': 'unavailable',
           'summary': 'Gemini AI key is not configured.',
+          'context_analysis': 'Visual context analysis is unavailable because the AI service could not be reached.',
           'likely_platform': 'instagram',
           'confidence': 120,
           'risk_level': 'extreme',
@@ -354,6 +357,7 @@ void main() {
       final analysis = AiEvidenceAnalysis.fromJson({
         'status': 'success',
         'summary': 'Malformed platform test.',
+        'context_analysis': 'Some context.',
         'likely_platform': 'definitely_instagram',
         'confidence': -5,
         'risk_level': 'low',

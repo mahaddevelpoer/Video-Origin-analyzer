@@ -113,14 +113,19 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
               if (widget.result.onlineSearchResult?.aiAnalysis != null) ...[
                 pw.SizedBox(height: 14),
                 pw.Text(
-                  'AI EVIDENCE REVIEW',
+                  'VISUAL CONTEXT & AI REVIEW',
                   style: pw.TextStyle(
                     fontSize: 12,
                     fontWeight: pw.FontWeight.bold,
                   ),
                 ),
                 pw.SizedBox(height: 6),
-                pw.Text(widget.result.onlineSearchResult!.aiAnalysis!.summary),
+                pw.Text(widget.result.onlineSearchResult!.aiAnalysis!.summary, style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                if (widget.result.onlineSearchResult!.aiAnalysis!.isAvailable) ...[
+                  pw.SizedBox(height: 4),
+                  pw.Text('Context: ${widget.result.onlineSearchResult!.aiAnalysis!.contextAnalysis}'),
+                ],
+                pw.SizedBox(height: 6),
                 pw.Text(
                   'AI Platform: ${widget.result.onlineSearchResult!.aiAnalysis!.likelyPlatform.toUpperCase()} (${widget.result.onlineSearchResult!.aiAnalysis!.confidence}%)',
                 ),
@@ -928,7 +933,7 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'AI EVIDENCE REVIEW',
+                  'VISUAL CONTEXT & AI REVIEW',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
@@ -958,8 +963,33 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
           const SizedBox(height: 10),
           Text(
             ai.summary,
-            style: TextStyle(fontSize: 13, height: 1.35, color: textColor),
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, height: 1.35, color: textColor),
           ),
+          if (isAvailable && ai.contextAnalysis.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF2A2A2A) : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: borderColor.withAlpha(80)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Multi-Modal Forensic Context',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textMuted),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    ai.contextAnalysis,
+                    style: TextStyle(fontSize: 12, height: 1.4, color: textColor),
+                  ),
+                ],
+              ),
+            ),
+          ],
           if (isAvailable) ...[
             const SizedBox(height: 8),
             Wrap(
