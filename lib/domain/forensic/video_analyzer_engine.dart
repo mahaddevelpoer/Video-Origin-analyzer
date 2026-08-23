@@ -255,8 +255,8 @@ class VideoAnalyzerEngine {
               enrichedMatches.add(enrichedMatch);
 
               if (canUsePlatformTimestamp &&
-                  postEvidence?.platformPostTimestamp != null &&
-                  DateTime.tryParse(postEvidence!.platformPostTimestamp!) !=
+                  postEvidence.platformPostTimestamp != null &&
+                  DateTime.tryParse(postEvidence.platformPostTimestamp!) !=
                       null) {
                 final platformCap = match.classifiedPlatform.toUpperCase();
                 final sourceDesc = match.classifiedPlatform == 'instagram'

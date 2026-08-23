@@ -36,7 +36,7 @@ class OnlineVisualSearchService {
         'Querying Supabase hybrid visual-search for ${frames.length} frame(s)...',
       );
 
-      return _sendFramesToEdgeFunction(
+      return await _sendFramesToEdgeFunction(
         frames.map((frame) => frame.base64Jpeg).take(3).toList(),
         ocrQuery: ocrQuery,
       );
