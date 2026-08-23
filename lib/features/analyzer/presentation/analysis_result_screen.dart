@@ -400,15 +400,74 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        widget.result.platformName.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.bold,
-                          color: textColor,
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.result.platformName.toUpperCase(),
+                                  style: TextStyle(
+                                    fontSize: 26,
+                                    fontWeight: FontWeight.bold,
+                                    color: textColor,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  widget.result.confidenceLevel.displayName,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.youtubeRed,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Animated Circular Confidence Gauge
+                          TweenAnimationBuilder<double>(
+                            tween: Tween<double>(
+                              begin: 0,
+                              end: widget.result.confidence / 100.0,
+                            ),
+                            duration: const Duration(milliseconds: 900),
+                            curve: Curves.easeOutCubic,
+                            builder: (context, value, _) {
+                              return SizedBox(
+                                width: 54,
+                                height: 54,
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    CircularProgressIndicator(
+                                      value: value,
+                                      strokeWidth: 4.5,
+                                      backgroundColor: isDark
+                                          ? Colors.white10
+                                          : AppColors.lightBorder,
+                                      valueColor: const AlwaysStoppedAnimation<Color>(
+                                        AppColors.youtubeRed,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${(value * 100).round()}%',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: textColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 12),
                       // Easy-to-understand plain language explanation
                       Text(
                         _getBeginnerSummary(),
@@ -420,17 +479,6 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
                           height: 1.4,
                         ),
                       ),
-                      if (_showIntermediateDetails) ...[
-                        const SizedBox(height: 10),
-                        Text(
-                          'Confidence: ${widget.result.confidence}% (${widget.result.confidenceLevel.displayName})',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.youtubeRed,
-                          ),
-                        ),
-                      ],
                       if (widget.result.possibleIntermediatePlatform !=
                           null) ...[
                         const SizedBox(height: 12),
@@ -583,9 +631,15 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
               ),
               const SizedBox(height: 10),
 
-              ...widget.result.evidenceList.map(
-                (item) =>
-                    _buildEvidenceCard(item, _showIntermediateDetails, isDark),
+              ...widget.result.evidenceList.asMap().entries.map(
+                (entry) {
+                  final idx = entry.key;
+                  final item = entry.value;
+                  return MotionReveal(
+                    delay: Duration(milliseconds: 40 * (idx + 1)),
+                    child: _buildEvidenceCard(item, _showIntermediateDetails, isDark),
+                  );
+                },
               ),
 
               if (widget.result.conflictingEvidenceList.isNotEmpty) ...[
@@ -1155,7 +1209,12 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor),
+        border: Border(
+          left: BorderSide(color: badgeColor, width: 4),
+          top: BorderSide(color: borderColor),
+          right: BorderSide(color: borderColor),
+          bottom: BorderSide(color: borderColor),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

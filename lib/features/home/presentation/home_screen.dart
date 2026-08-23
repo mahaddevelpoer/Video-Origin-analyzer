@@ -182,9 +182,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                     const SizedBox(height: 14),
                     if (isPro)
-                      const Text(
+                      Text(
                         'Unlimited local video origin analyses enabled.',
-                        style: TextStyle(fontSize: 13, color: AppColors.textDark),
+                        style: TextStyle(fontSize: 13, color: textColor),
                       )
                     else ...[
                       Row(
@@ -196,10 +196,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           ),
                           Text(
                             '$usedCount / ${AppConfig.freeDailyAnalysisLimit}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.textDark,
+                              color: textColor,
                             ),
                           ),
                         ],

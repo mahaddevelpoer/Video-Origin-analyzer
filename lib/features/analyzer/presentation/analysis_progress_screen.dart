@@ -119,6 +119,12 @@ class _AnalysisProgressScreenState
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final cardBg = theme.cardTheme.color ?? (isDark ? const Color(0xFF212121) : AppColors.lightSurface);
+    final borderColor = theme.dividerColor;
+    final textColor = theme.textTheme.bodyLarge?.color ?? (isDark ? Colors.white : AppColors.textDark);
+
     final stages = [
       AnalysisStage.readingContainer,
       AnalysisStage.extractingMetadata,
@@ -131,7 +137,7 @@ class _AnalysisProgressScreenState
     ];
 
     return Scaffold(
-      backgroundColor: AppColors.lightBackground,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(title: const Text('Forensic Analysis')),
       body: SafeArea(
         child: Padding(
@@ -141,49 +147,76 @@ class _AnalysisProgressScreenState
             children: [
               Text(
                 'ANALYZING FILE: ${widget.session.videoPayload.name}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: FontWeight.bold,
                   color: AppColors.youtubeRed,
-                  letterSpacing: 0.5,
+                  letterSpacing: 0.8,
                 ),
               ),
               const SizedBox(height: 16),
-              LinearProgressIndicator(
-                value: _progressFraction,
-                backgroundColor: AppColors.lightCard,
-                valueColor: const AlwaysStoppedAnimation<Color>(
-                  AppColors.youtubeRed,
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween<double>(begin: 0, end: _progressFraction),
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  builder: (context, value, _) {
+                    return LinearProgressIndicator(
+                      value: value,
+                      minHeight: 6,
+                      backgroundColor: isDark ? Colors.white10 : AppColors.lightBorder,
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        AppColors.youtubeRed,
+                      ),
+                    );
+                  },
                 ),
               ),
               const SizedBox(height: 24),
 
               if (_errorMessage != null) ...[
-                Text(
-                  _errorMessage!,
-                  style: const TextStyle(
-                    color: AppColors.strengthContradictory,
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.strengthContradictory.withAlpha(20),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.strengthContradictory),
                   ),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      _errorMessage = null;
-                      _currentStage = AnalysisStage.validatingFile;
-                    });
-                    _runAnalysisFlow();
-                  },
-                  child: const Text('RETRY ANALYSIS'),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _errorMessage!,
+                        style: const TextStyle(
+                          color: AppColors.strengthContradictory,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () {
+                          setState(() {
+                            _errorMessage = null;
+                            _currentStage = AnalysisStage.validatingFile;
+                          });
+                          _runAnalysisFlow();
+                        },
+                        child: const Text('RETRY ANALYSIS'),
+                      ),
+                    ],
+                  ),
                 ),
               ] else ...[
                 Expanded(
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: AppColors.lightSurface,
+                      color: cardBg,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.lightBorder),
+                      border: Border.all(color: borderColor),
                     ),
                     child: ListView.builder(
                       itemCount: stages.length,
@@ -192,31 +225,44 @@ class _AnalysisProgressScreenState
                         final isDone = stage.index < _currentStage.index;
                         final isCurrent = stage.index == _currentStage.index;
 
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 250),
+                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isCurrent
+                                ? AppColors.youtubeRed.withAlpha(isDark ? 30 : 12)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                           child: Row(
                             children: [
-                              if (isDone)
-                                const Icon(
-                                  Icons.check_circle,
-                                  color: AppColors.strengthStrong,
-                                  size: 18,
-                                )
-                              else if (isCurrent)
-                                const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: AppColors.youtubeRed,
-                                  ),
-                                )
-                              else
-                                const Icon(
-                                  Icons.radio_button_unchecked,
-                                  color: AppColors.textMuted,
-                                  size: 18,
-                                ),
+                              AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 200),
+                                child: isDone
+                                    ? const Icon(
+                                        Icons.check_circle,
+                                        key: ValueKey('done'),
+                                        color: AppColors.strengthStrong,
+                                        size: 18,
+                                      )
+                                    : isCurrent
+                                        ? const SizedBox(
+                                            key: ValueKey('current'),
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: AppColors.youtubeRed,
+                                            ),
+                                          )
+                                        : Icon(
+                                            Icons.radio_button_unchecked,
+                                            key: const ValueKey('todo'),
+                                            color: isDark ? Colors.white30 : AppColors.textMuted,
+                                            size: 18,
+                                          ),
+                              ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
@@ -224,8 +270,8 @@ class _AnalysisProgressScreenState
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: isDone || isCurrent
-                                        ? AppColors.textDark
-                                        : AppColors.textMuted,
+                                        ? textColor
+                                        : (isDark ? Colors.white38 : AppColors.textMuted),
                                     fontWeight: isCurrent
                                         ? FontWeight.bold
                                         : FontWeight.normal,
