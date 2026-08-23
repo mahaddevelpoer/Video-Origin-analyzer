@@ -310,7 +310,7 @@ void main() {
         'matches': [],
         'ai_analysis': {
           'status': 'success',
-          'model': 'gemini-2.5-flash-lite',
+          'model': 'gemini-2.0-flash',
           'summary': 'AI found Instagram-style evidence.',
           'context_analysis': 'The visual overlay uses a font style synonymous with Instagram Reels.',
           'likely_platform': 'instagram',

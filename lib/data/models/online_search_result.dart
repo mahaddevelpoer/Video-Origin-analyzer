@@ -83,7 +83,7 @@ class AiEvidenceAnalysis {
 
     return AiEvidenceAnalysis(
       status: json['status'] as String? ?? 'unavailable',
-      model: json['model'] as String? ?? 'gemini-2.5-flash-lite',
+      model: json['model'] as String? ?? 'gemini-2.0-flash',
       summary: json['summary'] as String? ?? 'AI evidence review unavailable.',
       contextAnalysis: json['context_analysis'] as String? ?? 'Visual context analysis is unavailable.',
       likelyPlatform: normalizePlatform(json['likely_platform']),
