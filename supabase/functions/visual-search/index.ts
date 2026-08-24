@@ -375,71 +375,98 @@ Candidate matches JSON: ${JSON.stringify(candidateMatches)}
     });
   }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 14000);
+  const candidateModels = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"];
+  let lastErrorStatus = "";
 
-  try {
-    const response = await fetch(`${GEMINI_ENDPOINT}?key=${encodeURIComponent(geminiKey)}`, {
-      method: "POST",
-      signal: controller.signal,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts }],
-        tools: [{ google_search: {} }],
-        generationConfig: {
-          temperature: 0.15,
-          maxOutputTokens: 900,
-          responseMimeType: "application/json",
-        },
-      }),
-    });
+  for (const modelName of candidateModels) {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
 
-    if (!response.ok) {
-      return unavailableAi("GEMINI_HTTP_ERROR", `Gemini request failed: ${response.status}`);
+    try {
+      // First attempt with grounding search tool (using correct camelCase googleSearch)
+      let response = await fetch(`${endpoint}?key=${encodeURIComponent(geminiKey)}`, {
+        method: "POST",
+        signal: controller.signal,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts }],
+          tools: [{ googleSearch: {} }],
+          generationConfig: {
+            temperature: 0.15,
+            maxOutputTokens: 900,
+            responseMimeType: "application/json",
+          },
+        }),
+      });
+
+      // If 400 or tool error, retry without tools on same model
+      if (!response.ok && response.status !== 404) {
+        response = await fetch(`${endpoint}?key=${encodeURIComponent(geminiKey)}`, {
+          method: "POST",
+          signal: controller.signal,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts }],
+            generationConfig: {
+              temperature: 0.15,
+              maxOutputTokens: 900,
+              responseMimeType: "application/json",
+            },
+          }),
+        });
+      }
+
+      if (!response.ok) {
+        lastErrorStatus = `${response.status} (${modelName})`;
+        continue; // Try next model in fallback list
+      }
+
+      const json = await response.json();
+      const text =
+        json?.candidates?.[0]?.content?.parts
+          ?.map((part: any) => part.text || "")
+          .join("\n")
+          .trim() || "";
+      const parsed = extractJsonObject(text);
+      if (!parsed) {
+        lastErrorStatus = `GEMINI_INVALID_JSON (${modelName})`;
+        continue;
+      }
+
+      const sourceUrls = normalizeStringList(parsed.source_urls);
+      const groundingUrls =
+        json?.candidates?.[0]?.groundingMetadata?.groundingChunks
+          ?.map((chunk: any) => chunk?.web?.uri)
+          ?.filter((uri: unknown) => typeof uri === "string") || [];
+
+      return {
+        status: "success",
+        model: modelName,
+        summary:
+          typeof parsed.summary === "string" && parsed.summary.trim().length > 0
+            ? parsed.summary.trim()
+            : "AI reviewed the visual and web evidence.",
+        context_analysis:
+          typeof parsed.context_analysis === "string" && parsed.context_analysis.trim().length > 0
+            ? parsed.context_analysis.trim()
+            : "Context analysis not provided.",
+        likely_platform: normalizePlatform(parsed.likely_platform),
+        confidence: clampConfidence(parsed.confidence),
+        evidence_reasons: normalizeStringList(parsed.evidence_reasons),
+        conflicts: normalizeStringList(parsed.conflicts),
+        recommended_search_queries: normalizeStringList(parsed.recommended_search_queries),
+        source_urls: Array.from(new Set([...sourceUrls, ...groundingUrls])).slice(0, 8),
+        risk_level: normalizeRisk(parsed.risk_level),
+      };
+    } catch (err: any) {
+      lastErrorStatus = err?.name === "AbortError" ? `TIMEOUT (${modelName})` : `EXCEPTION (${modelName})`;
+    } finally {
+      clearTimeout(timeout);
     }
-
-    const json = await response.json();
-    const text =
-      json?.candidates?.[0]?.content?.parts
-        ?.map((part: any) => part.text || "")
-        .join("\n")
-        .trim() || "";
-    const parsed = extractJsonObject(text);
-    if (!parsed) {
-      return unavailableAi("GEMINI_INVALID_JSON", "Gemini returned an invalid review format.");
-    }
-
-    const sourceUrls = normalizeStringList(parsed.source_urls);
-    const groundingUrls =
-      json?.candidates?.[0]?.groundingMetadata?.groundingChunks
-        ?.map((chunk: any) => chunk?.web?.uri)
-        ?.filter((uri: unknown) => typeof uri === "string") || [];
-
-    return {
-      status: "success",
-      model: GEMINI_MODEL,
-      summary:
-        typeof parsed.summary === "string" && parsed.summary.trim().length > 0
-          ? parsed.summary.trim()
-          : "AI reviewed the visual and web evidence.",
-      context_analysis:
-        typeof parsed.context_analysis === "string" && parsed.context_analysis.trim().length > 0
-          ? parsed.context_analysis.trim()
-          : "Context analysis not provided.",
-      likely_platform: normalizePlatform(parsed.likely_platform),
-      confidence: clampConfidence(parsed.confidence),
-      evidence_reasons: normalizeStringList(parsed.evidence_reasons),
-      conflicts: normalizeStringList(parsed.conflicts),
-      recommended_search_queries: normalizeStringList(parsed.recommended_search_queries),
-      source_urls: Array.from(new Set([...sourceUrls, ...groundingUrls])).slice(0, 8),
-      risk_level: normalizeRisk(parsed.risk_level),
-    };
-  } catch (err: any) {
-    const code = err?.name === "AbortError" ? "GEMINI_TIMEOUT" : "GEMINI_EXCEPTION";
-    return unavailableAi(code, "Gemini AI review is temporarily unavailable.");
-  } finally {
-    clearTimeout(timeout);
   }
+
+  return unavailableAi("GEMINI_HTTP_ERROR", `Gemini request failed: ${lastErrorStatus}`);
 }
 
 function summarize(matches: VisualMatch[]): Record<string, number> {
