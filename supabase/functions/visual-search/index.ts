@@ -418,7 +418,8 @@ Candidate matches JSON: ${JSON.stringify(candidateMatches)}
       }
 
       if (!response.ok) {
-        lastErrorStatus = `${response.status} (${modelName})`;
+        const errText = await response.text().catch(() => "");
+        lastErrorStatus = `${response.status} (${modelName}): ${errText.slice(0, 150)}`;
         continue; // Try next model in fallback list
       }
 
