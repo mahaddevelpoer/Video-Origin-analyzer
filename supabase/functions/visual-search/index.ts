@@ -375,7 +375,12 @@ Candidate matches JSON: ${JSON.stringify(candidateMatches)}
     });
   }
 
-  const candidateModels = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"];
+  const candidateModels = [
+    "gemini-1.5-flash",
+    "gemini-1.5-pro",
+    "gemini-2.0-flash-exp",
+    "gemini-flash-latest",
+  ];
   let lastErrorStatus = "";
 
   for (const modelName of candidateModels) {
@@ -419,7 +424,7 @@ Candidate matches JSON: ${JSON.stringify(candidateMatches)}
 
       if (!response.ok) {
         const errText = await response.text().catch(() => "");
-        lastErrorStatus = `${response.status} (${modelName}): ${errText.slice(0, 150)}`;
+        lastErrorStatus = `${response.status} (${modelName}): ${errText.slice(0, 500)}`;
         continue; // Try next model in fallback list
       }
 

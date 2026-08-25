@@ -11,13 +11,15 @@ class OnlineVisualSearchService {
       'https://stgifkztggudpvshfewk.supabase.co';
   static const String functionEndpoint =
       '$supabaseProjectUrl/functions/v1/visual-search';
+  static const String geminiEndpoint =
+      '$supabaseProjectUrl/functions/v1/gemini-analysis';
 
   final FrameExtractorService _frameExtractor;
 
   OnlineVisualSearchService({FrameExtractorService? frameExtractor})
     : _frameExtractor = frameExtractor ?? FrameExtractorService();
 
-  /// Searches up to three representative frames through the hybrid AI proxy.
+  /// Searches up to three representative frames through SerpApi Lens and Gemini AI.
   Future<OnlineSearchResult> performVisualSearch(
     InputVideoPayload payload, {
     String? ocrQuery,
@@ -32,13 +34,32 @@ class OnlineVisualSearchService {
         );
       }
 
+      final frameBase64s = frames.map((frame) => frame.base64Jpeg).take(3).toList();
+
       debugPrint(
-        'Querying Supabase hybrid visual-search for ${frames.length} frame(s)...',
+        'Querying Supabase visual-search and gemini-analysis for ${frameBase64s.length} frame(s)...',
       );
 
-      return await _sendFramesToEdgeFunction(
-        frames.map((frame) => frame.base64Jpeg).take(3).toList(),
+      final visualResult = await _sendFramesToEdgeFunction(
+        frameBase64s,
         ocrQuery: ocrQuery,
+      );
+
+      // Call dedicated Gemini AI analysis function independently
+      final aiAnalysis = await _sendFramesToGeminiAnalysis(
+        frameBase64s,
+        ocrQuery: ocrQuery,
+        matches: visualResult.matches,
+      );
+
+      return OnlineSearchResult(
+        status: visualResult.status,
+        totalMatches: visualResult.totalMatches,
+        summary: visualResult.summary,
+        matches: visualResult.matches,
+        aiAnalysis: aiAnalysis ?? visualResult.aiAnalysis,
+        errorMessage: visualResult.errorMessage,
+        errorCode: visualResult.errorCode,
       );
     } catch (e) {
       debugPrint('OnlineVisualSearchService Exception: $e');
@@ -48,6 +69,45 @@ class OnlineVisualSearchService {
         code: 'VISUAL_SEARCH_UNAVAILABLE',
       );
     }
+  }
+
+  Future<AiEvidenceAnalysis?> _sendFramesToGeminiAnalysis(
+    List<String> base64Jpegs, {
+    String? ocrQuery,
+    List<OnlineMatchItem> matches = const [],
+  }) async {
+    try {
+      final candidateMatches = matches.take(10).map((m) => {
+        'title': m.title,
+        'link': m.link,
+        'platform': m.classifiedPlatform,
+        if (m.snippet != null) 'snippet': m.snippet,
+      }).toList();
+
+      final response = await http
+          .post(
+            Uri.parse(geminiEndpoint),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: jsonEncode({
+              'image_frames_base64': base64Jpegs,
+              if (ocrQuery != null && ocrQuery.isNotEmpty)
+                'ocr_query': ocrQuery,
+              'candidate_matches': candidateMatches,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 200) {
+        final jsonMap = jsonDecode(response.body) as Map<String, dynamic>;
+        return AiEvidenceAnalysis.fromJson(jsonMap);
+      }
+    } catch (e) {
+      debugPrint('Dedicated Gemini AI service notice: $e');
+    }
+    return null;
   }
 
   Future<OnlineSearchResult> _sendFramesToEdgeFunction(
