@@ -37,20 +37,16 @@ class OnlineVisualSearchService {
       final frameBase64s = frames.map((frame) => frame.base64Jpeg).take(3).toList();
 
       debugPrint(
-        'Querying Supabase visual-search and gemini-analysis for ${frameBase64s.length} frame(s)...',
+        'Querying Supabase visual-search and gemini-analysis concurrently for ${frameBase64s.length} frame(s)...',
       );
 
-      final visualResult = await _sendFramesToEdgeFunction(
-        frameBase64s,
-        ocrQuery: ocrQuery,
-      );
+      final results = await Future.wait([
+        _sendFramesToEdgeFunction(frameBase64s, ocrQuery: ocrQuery),
+        _sendFramesToGeminiAnalysis(frameBase64s, ocrQuery: ocrQuery),
+      ]);
 
-      // Call dedicated Gemini AI analysis function independently
-      final aiAnalysis = await _sendFramesToGeminiAnalysis(
-        frameBase64s,
-        ocrQuery: ocrQuery,
-        matches: visualResult.matches,
-      );
+      final visualResult = results[0] as OnlineSearchResult;
+      final aiAnalysis = results[1] as AiEvidenceAnalysis?;
 
       return OnlineSearchResult(
         status: visualResult.status,
@@ -98,7 +94,7 @@ class OnlineVisualSearchService {
               'candidate_matches': candidateMatches,
             }),
           )
-          .timeout(const Duration(seconds: 20));
+          .timeout(const Duration(seconds: 35));
 
       if (response.statusCode == 200) {
         final jsonMap = jsonDecode(response.body) as Map<String, dynamic>;
@@ -129,7 +125,7 @@ class OnlineVisualSearchService {
                 'ocr_query': ocrQuery,
             }),
           )
-          .timeout(const Duration(seconds: 25));
+          .timeout(const Duration(seconds: 35));
 
       if (response.statusCode == 200) {
         final jsonMap = jsonDecode(response.body) as Map<String, dynamic>;

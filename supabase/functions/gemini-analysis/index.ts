@@ -177,18 +177,16 @@ Candidate matches: ${JSON.stringify(body.candidate_matches || [])}
     }
 
     const candidateModels = [
+      "gemini-1.5-flash",
       "gemini-2.5-flash",
       "gemini-flash-latest",
-      "gemini-3.5-flash",
-      "gemini-3.6-flash",
-      "gemini-2.5-pro",
     ];
     let lastError = "";
 
     for (const modelName of candidateModels) {
       const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(geminiKey)}`;
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 12000);
+      const timeout = setTimeout(() => controller.abort(), 22000);
 
       try {
         let response = await fetch(endpoint, {
