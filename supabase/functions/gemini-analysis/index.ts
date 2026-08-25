@@ -46,7 +46,7 @@ function cleanBase64Image(raw: string): string {
 function unavailableAi(errorCode: string, message: string): AiAnalysisResponse {
   return {
     status: "unavailable",
-    model: "gemini-1.5-flash",
+    model: "none",
     summary: message,
     context_analysis: "Visual context analysis is unavailable.",
     likely_platform: "unknown",
@@ -96,17 +96,64 @@ function normalizeRisk(value: unknown): "low" | "medium" | "high" | "unknown" {
 }
 
 function extractJsonObject(text: string): Record<string, unknown> | null {
+  // Try direct parse
   try {
-    return JSON.parse(text);
-  } catch (_) {
-    const match = text.match(/\{[\s\S]*\}/);
-    if (!match) return null;
+    const parsed = JSON.parse(text);
+    if (typeof parsed === "object" && parsed !== null) return parsed;
+  } catch (_) { /* fall through */ }
+
+  // Extract from markdown code block ```json ... ```
+  const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeBlockMatch) {
     try {
-      return JSON.parse(match[0]);
-    } catch (_) {
-      return null;
-    }
+      const parsed = JSON.parse(codeBlockMatch[1].trim());
+      if (typeof parsed === "object" && parsed !== null) return parsed;
+    } catch (_) { /* fall through */ }
   }
+
+  // Extract bare {...} object
+  const match = text.match(/\{[\s\S]*\}/);
+  if (match) {
+    try {
+      const parsed = JSON.parse(match[0]);
+      if (typeof parsed === "object" && parsed !== null) return parsed;
+    } catch (_) { /* fall through */ }
+  }
+
+  return null;
+}
+
+async function callGemini(
+  endpoint: string,
+  parts: unknown[],
+  useJsonMode: boolean,
+  signal: AbortSignal,
+): Promise<Response> {
+  const generationConfig: Record<string, unknown> = {
+    temperature: 0.1,
+    maxOutputTokens: 1024,
+  };
+
+  // Only set responseMimeType when NOT using googleSearch tool
+  // (they are mutually exclusive on some models)
+  if (useJsonMode) {
+    generationConfig["responseMimeType"] = "application/json";
+  }
+
+  const body: Record<string, unknown> = {
+    contents: [{ role: "user", parts }],
+    generationConfig,
+  };
+
+  // Do NOT include tools - they cause timeouts on free tier
+  // and responseMimeType conflict
+
+  return await fetch(endpoint, {
+    method: "POST",
+    signal,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
 }
 
 serve(async (req: Request) => {
@@ -123,7 +170,7 @@ serve(async (req: Request) => {
     }
 
     const body: RequestPayload = await req.json().catch(() => ({}));
-    const geminiKey = Deno.env.get("gm_key") || Deno.env.get("GM_KEY");
+    const geminiKey = Deno.env.get("gm_key") || Deno.env.get("GM_KEY") || Deno.env.get("GEMINI_API_KEY");
 
     if (!geminiKey || geminiKey.trim().length === 0) {
       return new Response(
@@ -133,8 +180,8 @@ serve(async (req: Request) => {
     }
 
     const frameBase64List = (body.image_frames_base64 || [])
-      .filter((frame) => typeof frame === "string" && frame.length > 0)
-      .slice(0, 3);
+      .filter((frame) => typeof frame === "string" && frame.length > 10)
+      .slice(0, 2); // Max 2 frames to reduce payload size & latency
 
     if (frameBase64List.length === 0) {
       return new Response(
@@ -143,30 +190,23 @@ serve(async (req: Request) => {
       );
     }
 
-    const prompt = `
-You are the dedicated Gemini AI forensic review layer for a video origin analysis app.
-Analyze the supplied video frame(s), OCR text, and candidate web matches.
-Return ONLY valid JSON with exactly these fields:
+    const prompt = `You are a forensic video analyst. Analyze the video frame(s) and any OCR/web context provided.
+Return ONLY a valid JSON object with exactly these fields (no markdown, no extra text):
 {
-  "summary": "one beginner-friendly sentence",
-  "context_analysis": "Detailed professional narrative explaining the visual context (scene action, aspect ratio, fonts/UI styles, overlay text) and how this relates to the likely platform.",
-  "likely_platform": "instagram|tiktok|youtube|facebook|other|unknown",
+  "summary": "One clear sentence about what this content is.",
+  "context_analysis": "Professional forensic description of the visual content, UI elements, aspect ratio, text overlays, and what platform this looks like.",
+  "likely_platform": "instagram or tiktok or youtube or facebook or other or unknown",
   "confidence": 0-100,
-  "evidence_reasons": ["short concrete reason"],
-  "conflicts": ["short conflict or uncertainty"],
-  "recommended_search_queries": ["query user/app could try"],
-  "source_urls": ["urls you relied on from candidate matches or search grounding"],
-  "risk_level": "low|medium|high|unknown"
+  "evidence_reasons": ["reason 1", "reason 2"],
+  "conflicts": ["any conflicting signal"],
+  "recommended_search_queries": ["search query"],
+  "source_urls": [],
+  "risk_level": "low or medium or high or unknown"
 }
-Rules:
-- Do not claim original authorship. Only discuss public evidence and likely platform origin.
-- Prefer direct platform URLs, exact visual matches, OCR handles, captions, and timestamps.
-- Write context_analysis like a professional forensic report summary.
-OCR text/query: ${body.ocr_query || "none"}
-Candidate matches: ${JSON.stringify(body.candidate_matches || [])}
-`;
+OCR text: ${body.ocr_query || "none"}
+Candidate web matches: ${JSON.stringify((body.candidate_matches || []).slice(0, 5))}`;
 
-    const parts: any[] = [{ text: prompt }];
+    const parts: unknown[] = [{ text: prompt }];
     for (const frame of frameBase64List) {
       parts.push({
         inline_data: {
@@ -176,75 +216,57 @@ Candidate matches: ${JSON.stringify(body.candidate_matches || [])}
       });
     }
 
+    // Free-tier models that work with v1beta - ordered by speed
+    // gemini-2.5-flash is the primary free model
     const candidateModels = [
-      "gemini-2.5-flash",   // Verified working ✓
-      "gemini-3.5-flash",   // Verified working ✓
-      "gemini-3.6-flash",   // Fallback
+      "gemini-2.5-flash",
+      "gemini-2.0-flash",
+      "gemini-2.0-flash-lite",
     ];
+
     let lastError = "";
 
     for (const modelName of candidateModels) {
       const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(geminiKey)}`;
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 22000);
+      // 28s timeout - enough for free tier, leaves margin under Supabase 60s limit
+      const timeout = setTimeout(() => controller.abort(), 28000);
 
       try {
-        let response = await fetch(endpoint, {
-          method: "POST",
-          signal: controller.signal,
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ role: "user", parts }],
-            tools: [{ googleSearch: {} }],
-            generationConfig: {
-              temperature: 0.15,
-              maxOutputTokens: 900,
-              responseMimeType: "application/json",
-            },
-          }),
-        });
+        // First try: with JSON mode
+        let response = await callGemini(endpoint, parts, true, controller.signal);
 
-        // Retry without tools if first attempt failed
+        // If JSON mode fails, retry without it (text mode)
         if (!response.ok) {
-          response = await fetch(endpoint, {
-            method: "POST",
-            signal: controller.signal,
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ role: "user", parts }],
-              generationConfig: {
-                temperature: 0.15,
-                maxOutputTokens: 900,
-                responseMimeType: "application/json",
-              },
-            }),
-          });
+          const errText = await response.text().catch(() => "");
+          console.log(`${modelName} JSON mode failed (${response.status}): ${errText.slice(0, 100)}`);
+          // Small delay before retry
+          await new Promise((r) => setTimeout(r, 500));
+          response = await callGemini(endpoint, parts, false, controller.signal);
         }
 
         if (!response.ok) {
           const errText = await response.text().catch(() => "");
-          lastError = `${response.status} (${modelName}): ${errText.slice(0, 150)}`;
+          lastError = `${response.status} (${modelName}): ${errText.slice(0, 200)}`;
+          console.log(`${modelName} failed: ${lastError}`);
           continue;
         }
 
         const json = await response.json();
-        const text =
+        const rawText =
           json?.candidates?.[0]?.content?.parts
-            ?.map((part: any) => part.text || "")
+            ?.map((part: { text?: string }) => part.text || "")
             .join("\n")
             .trim() || "";
-        const parsed = extractJsonObject(text);
+
+        console.log(`${modelName} raw response (${rawText.length} chars): ${rawText.slice(0, 200)}`);
+
+        const parsed = extractJsonObject(rawText);
 
         if (!parsed) {
-          lastError = `Invalid JSON response from ${modelName}`;
+          lastError = `${modelName}: Could not parse JSON from response: "${rawText.slice(0, 100)}"`;
           continue;
         }
-
-        const sourceUrls = normalizeStringList(parsed.source_urls);
-        const groundingUrls =
-          json?.candidates?.[0]?.groundingMetadata?.groundingChunks
-            ?.map((chunk: any) => chunk?.web?.uri)
-            ?.filter((uri: unknown) => typeof uri === "string") || [];
 
         const result: AiAnalysisResponse = {
           status: "success",
@@ -262,28 +284,38 @@ Candidate matches: ${JSON.stringify(body.candidate_matches || [])}
           evidence_reasons: normalizeStringList(parsed.evidence_reasons),
           conflicts: normalizeStringList(parsed.conflicts),
           recommended_search_queries: normalizeStringList(parsed.recommended_search_queries),
-          source_urls: Array.from(new Set([...sourceUrls, ...groundingUrls])).slice(0, 8),
+          source_urls: normalizeStringList(parsed.source_urls),
           risk_level: normalizeRisk(parsed.risk_level),
         };
 
+        clearTimeout(timeout);
         return new Response(JSON.stringify(result), {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
-      } catch (err: any) {
-        lastError = err?.name === "AbortError" ? `Timeout (${modelName})` : `Error (${modelName})`;
+      } catch (err: unknown) {
+        const errAny = err as { name?: string; message?: string };
+        if (errAny?.name === "AbortError") {
+          lastError = `TIMEOUT on ${modelName} after 28s`;
+          console.log(lastError);
+        } else {
+          lastError = `Exception on ${modelName}: ${errAny?.message}`;
+          console.log(lastError);
+        }
       } finally {
         clearTimeout(timeout);
       }
     }
 
+    // All models failed
     return new Response(
       JSON.stringify(unavailableAi("GEMINI_FAILED", `Gemini review unavailable: ${lastError}`)),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const errAny = err as { message?: string };
     return new Response(
-      JSON.stringify(unavailableAi("EXCEPTION", `Internal edge function error: ${err?.message}`)),
+      JSON.stringify(unavailableAi("EXCEPTION", `Internal edge function error: ${errAny?.message}`)),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
