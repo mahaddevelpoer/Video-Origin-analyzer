@@ -124,7 +124,8 @@ function extractJsonObject(text: string): Record<string, unknown> | null {
 }
 
 async function callGemini(
-  endpoint: string,
+  endpointUrl: string,
+  apiKey: string,
   parts: unknown[],
   useJsonMode: boolean,
   signal: AbortSignal,
@@ -134,8 +135,6 @@ async function callGemini(
     maxOutputTokens: 1024,
   };
 
-  // Only set responseMimeType when NOT using googleSearch tool
-  // (they are mutually exclusive on some models)
   if (useJsonMode) {
     generationConfig["responseMimeType"] = "application/json";
   }
@@ -145,13 +144,13 @@ async function callGemini(
     generationConfig,
   };
 
-  // Do NOT include tools - they cause timeouts on free tier
-  // and responseMimeType conflict
-
-  return await fetch(endpoint, {
+  return await fetch(endpointUrl, {
     method: "POST",
     signal,
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": apiKey,
+    },
     body: JSON.stringify(body),
   });
 }
@@ -172,12 +171,11 @@ serve(async (req: Request) => {
     const body: RequestPayload = await req.json().catch(() => ({}));
     const geminiKey = Deno.env.get("gm_key") || Deno.env.get("GM_KEY") || Deno.env.get("GEMINI_API_KEY");
 
-    if (!geminiKey || geminiKey.trim().length === 0) {
-      return new Response(
-        JSON.stringify(unavailableAi("MISSING_GEMINI_KEY", "Gemini API key is not configured in Supabase secrets.")),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
+    // Debug: fetch available models if key fails
+    const listModelsRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(geminiKey)}`).catch(() => null);
+    const listModelsJson = listModelsRes ? await listModelsRes.json().catch(() => null) : null;
+    const availableModelNames = (listModelsJson?.models || []).map((m: any) => m.name);
+    console.log("Available Gemini Models for Key:", availableModelNames);
 
     const frameBase64List = (body.image_frames_base64 || [])
       .filter((frame) => typeof frame === "string" && frame.length > 10)
@@ -190,21 +188,37 @@ serve(async (req: Request) => {
       );
     }
 
-    const prompt = `You are a forensic video analyst. Analyze the video frame(s) and any OCR/web context provided.
-Return ONLY a valid JSON object with exactly these fields (no markdown, no extra text):
+    const candidateMatchesText = (body.candidate_matches || [])
+      .slice(0, 8)
+      .map((m, i) => `[${i + 1}] Platform: ${m.platform} | Title: "${m.title}" | Link: ${m.link}${m.snippet ? ` | Snippet: "${m.snippet}"` : ""}`)
+      .join("\n");
+
+    const prompt = `You are an expert forensic video origin analyst. Analyze the video frame(s), extracted OCR text, and candidate web matches.
+
+INSTRUCTIONS:
+1. Examine visual UI elements: aspect ratio (vertical 9:16 vs horizontal 16:9), watermarks (TikTok bouncing logo, Instagram Reels camera icon/handle, YouTube Shorts icon), font styles, audio stickers, like/comment button layouts, and caption positions.
+2. Cross-reference the candidate web search matches below with the image content and OCR text to determine if the video originated from Instagram, TikTok, YouTube, Facebook, or elsewhere.
+3. If candidate web matches match the video content or OCR handles/titles, use them to confirm platform, calculate high confidence (70-95%), and cite source URLs.
+4. If candidate matches conflict or show zero matches, analyze pure visual cues and state reasons clearly.
+
+Candidate Web Search Matches:
+${candidateMatchesText || "None (Visual analysis only)"}
+
+Extracted OCR Text / Handles:
+${body.ocr_query || "None"}
+
+Return ONLY a valid JSON object (no markdown formatting, no text outside JSON) with these fields:
 {
-  "summary": "One clear sentence about what this content is.",
-  "context_analysis": "Professional forensic description of the visual content, UI elements, aspect ratio, text overlays, and what platform this looks like.",
-  "likely_platform": "instagram or tiktok or youtube or facebook or other or unknown",
-  "confidence": 0-100,
-  "evidence_reasons": ["reason 1", "reason 2"],
-  "conflicts": ["any conflicting signal"],
-  "recommended_search_queries": ["search query"],
-  "source_urls": [],
-  "risk_level": "low or medium or high or unknown"
-}
-OCR text: ${body.ocr_query || "none"}
-Candidate web matches: ${JSON.stringify((body.candidate_matches || []).slice(0, 5))}`;
+  "summary": "Clear, concise 1-sentence conclusion about the video origin and content.",
+  "context_analysis": "Detailed forensic breakdown analyzing scene visual features, UI overlay elements, OCR text/handles, and web search evidence.",
+  "likely_platform": "instagram|tiktok|youtube|facebook|other|unknown",
+  "confidence": 0 to 100,
+  "evidence_reasons": ["Specific evidence point 1", "Specific evidence point 2"],
+  "conflicts": ["Any conflicting visual or web evidence point"],
+  "recommended_search_queries": ["Suggested search query to locate original video"],
+  "source_urls": ["URL from candidate matches that confirms origin"],
+  "risk_level": "low|medium|high|unknown"
+}`;
 
     const parts: unknown[] = [{ text: prompt }];
     for (const frame of frameBase64List) {
@@ -218,31 +232,29 @@ Candidate web matches: ${JSON.stringify((body.candidate_matches || []).slice(0, 
 
     // Free-tier models that work with v1beta - ordered by speed
     // gemini-2.5-flash is the primary free model
-    const candidateModels = [
-      "gemini-2.5-flash",
-      "gemini-2.0-flash",
-      "gemini-2.0-flash-lite",
+    const modelEndpoints = [
+      { name: "gemini-2.5-flash", url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}` },
+      { name: "gemini-2.5-flash-lite", url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${encodeURIComponent(geminiKey)}` },
+      { name: "gemini-3.5-flash-lite", url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${encodeURIComponent(geminiKey)}` },
+      { name: "gemini-3.5-flash", url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}` },
     ];
 
     let lastError = "";
 
-    for (const modelName of candidateModels) {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(geminiKey)}`;
+    for (const target of modelEndpoints) {
+      const modelName = target.name;
+      const endpoint = target.url;
       const controller = new AbortController();
-      // 28s timeout - enough for free tier, leaves margin under Supabase 60s limit
-      const timeout = setTimeout(() => controller.abort(), 28000);
+      const timeout = setTimeout(() => controller.abort(), 20000);
 
       try {
-        // First try: with JSON mode
-        let response = await callGemini(endpoint, parts, true, controller.signal);
+        let response = await callGemini(endpoint, geminiKey, parts, true, controller.signal);
 
-        // If JSON mode fails, retry without it (text mode)
         if (!response.ok) {
           const errText = await response.text().catch(() => "");
           console.log(`${modelName} JSON mode failed (${response.status}): ${errText.slice(0, 100)}`);
-          // Small delay before retry
-          await new Promise((r) => setTimeout(r, 500));
-          response = await callGemini(endpoint, parts, false, controller.signal);
+          await new Promise((r) => setTimeout(r, 300));
+          response = await callGemini(endpoint, geminiKey, parts, false, controller.signal);
         }
 
         if (!response.ok) {

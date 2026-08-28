@@ -34,19 +34,24 @@ class OnlineVisualSearchService {
         );
       }
 
-      final frameBase64s = frames.map((frame) => frame.base64Jpeg).take(3).toList();
+      final frameBase64s = frames.map((frame) => frame.base64Jpeg).take(2).toList();
 
       debugPrint(
-        'Querying Supabase visual-search and gemini-analysis concurrently for ${frameBase64s.length} frame(s)...',
+        'Step 1: Querying visual-search proxy for ${frameBase64s.length} frame(s)...',
       );
 
-      final results = await Future.wait([
-        _sendFramesToEdgeFunction(frameBase64s, ocrQuery: ocrQuery),
-        _sendFramesToGeminiAnalysis(frameBase64s, ocrQuery: ocrQuery),
-      ]);
+      // Step 1: Execute visual search (SerpApi / Google Lens)
+      final visualResult = await _sendFramesToEdgeFunction(frameBase64s, ocrQuery: ocrQuery);
 
-      final visualResult = results[0] as OnlineSearchResult;
-      final aiAnalysis = results[1] as AiEvidenceAnalysis?;
+      // Step 2: Pass candidate matches into Gemini for intelligent forensic cross-referencing
+      debugPrint(
+        'Step 2: Querying gemini-analysis with ${visualResult.matches.length} candidate match(es)...',
+      );
+      final aiAnalysis = await _sendFramesToGeminiAnalysis(
+        frameBase64s,
+        ocrQuery: ocrQuery,
+        matches: visualResult.matches,
+      );
 
       return OnlineSearchResult(
         status: visualResult.status,
