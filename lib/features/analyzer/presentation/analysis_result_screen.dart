@@ -24,8 +24,31 @@ class AnalysisResultScreen extends ConsumerStatefulWidget {
       _AnalysisResultScreenState();
 }
 
-class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
+class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen>
+    with TickerProviderStateMixin {
   bool _showIntermediateDetails = false;
+  late final AnimationController _pulseController;
+  late final Animation<double> _pulseAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat(reverse: true);
+
+    _pulseAnimation = CurvedAnimation(
+      parent: _pulseController,
+      curve: Curves.easeInOut,
+    );
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
 
   String? _getEarliestVerifiedPlatform() {
     final platform =
@@ -303,6 +326,235 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
     );
   }
 
+  Widget _buildPulsingGauge(
+    double targetConfidence,
+    Color themeAccent,
+    bool isDark,
+    Color textColor,
+  ) {
+    return AnimatedBuilder(
+      animation: _pulseAnimation,
+      builder: (context, child) {
+        final glowScale = 1.0 + (_pulseAnimation.value * 0.08);
+        final glowAlpha = (30 + (_pulseAnimation.value * 55)).round();
+        return SizedBox(
+          width: 64,
+          height: 64,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Living Pulse Beacon Ring
+              Transform.scale(
+                scale: glowScale,
+                child: Container(
+                  width: 58,
+                  height: 58,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: themeAccent.withAlpha(glowAlpha),
+                  ),
+                ),
+              ),
+              TweenAnimationBuilder<double>(
+                tween: Tween<double>(begin: 0, end: targetConfidence / 100.0),
+                duration: const Duration(milliseconds: 1000),
+                curve: Curves.easeOutCubic,
+                builder: (context, value, _) {
+                  return Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      SizedBox(
+                        width: 56,
+                        height: 56,
+                        child: CircularProgressIndicator(
+                          value: value,
+                          strokeWidth: 5.0,
+                          backgroundColor: isDark
+                              ? Colors.white10
+                              : AppColors.lightBorder,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            themeAccent,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '${(value * 100).round()}%',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: textColor,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildForensicTimelineFlow(
+    AiEvidenceAnalysis? ai,
+    Color themeAccent,
+    bool isDark,
+    Color textColor,
+    Color borderColor,
+  ) {
+    final earliestPlatform =
+        _getEarliestVerifiedPlatform() ?? widget.result.platformName;
+    final intermediate = widget.result.possibleIntermediatePlatform;
+    final earliestTime = _getEarliestVerifiedTimestamp();
+
+    return Container(
+      margin: const EdgeInsets.only(top: 14),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF161616) : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: themeAccent.withAlpha(80)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.timeline_rounded, size: 16, color: themeAccent),
+              const SizedBox(width: 6),
+              Text(
+                'FORENSIC ORIGIN FLOW & PIPELINE',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.8,
+                  color: themeAccent,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              // Node 1: Original Source Platform
+              Expanded(
+                child: _buildFlowNode(
+                  label: earliestPlatform.toUpperCase(),
+                  subLabel: earliestTime != null
+                      ? _formatFriendlyTimestamp(earliestTime)
+                      : 'Original Source',
+                  color: themeAccent,
+                  icon: Icons.upload_file_rounded,
+                  isDark: isDark,
+                ),
+              ),
+
+              // Animated Connector 1
+              _buildFlowConnector(themeAccent),
+
+              // Node 2: Intermediate (if present) or Visual Check
+              if (intermediate != null) ...[
+                Expanded(
+                  child: _buildFlowNode(
+                    label: intermediate.toUpperCase(),
+                    subLabel: 'Re-compressed',
+                    color: AppColors.strengthWeak,
+                    icon: Icons.alt_route_rounded,
+                    isDark: isDark,
+                  ),
+                ),
+                _buildFlowConnector(AppColors.strengthWeak),
+              ],
+
+              // Node 3: Current Video Analyzed
+              Expanded(
+                child: _buildFlowNode(
+                  label: 'THIS COPY',
+                  subLabel: 'Analyzed File',
+                  color: isDark ? Colors.white70 : AppColors.textDark,
+                  icon: Icons.movie_outlined,
+                  isDark: isDark,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFlowNode({
+    required String label,
+    required String subLabel,
+    required Color color,
+    required IconData icon,
+    required bool isDark,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withAlpha(20),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withAlpha(100)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          Text(
+            subLabel,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 8,
+              color: AppColors.textMuted,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFlowConnector(Color color) {
+    return AnimatedBuilder(
+      animation: _pulseAnimation,
+      builder: (context, child) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              height: 2,
+              width: 12,
+              color: color.withAlpha(
+                (100 + (_pulseAnimation.value * 155)).round(),
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 14,
+              color: color.withAlpha(
+                (140 + (_pulseAnimation.value * 115)).round(),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Color _getThemeAccentColor(AiEvidenceAnalysis? ai) {
     if (ai == null || !ai.isAvailable) return AppColors.youtubeRed;
     switch (ai.investigationMode) {
@@ -476,43 +728,12 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
                               ],
                             ),
                           ),
-                          // Animated Circular Confidence Gauge with AI Theme Color
-                          TweenAnimationBuilder<double>(
-                            tween: Tween<double>(
-                              begin: 0,
-                              end: widget.result.confidence / 100.0,
-                            ),
-                            duration: const Duration(milliseconds: 900),
-                            curve: Curves.easeOutCubic,
-                            builder: (context, value, _) {
-                              return SizedBox(
-                                width: 56,
-                                height: 56,
-                                child: Stack(
-                                  alignment: Alignment.center,
-                                  children: [
-                                    CircularProgressIndicator(
-                                      value: value,
-                                      strokeWidth: 5.0,
-                                      backgroundColor: isDark
-                                          ? Colors.white10
-                                          : AppColors.lightBorder,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        themeAccent,
-                                      ),
-                                    ),
-                                    Text(
-                                      '${(value * 100).round()}%',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: textColor,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
+                          // Living Pulsing Beacon Gauge
+                          _buildPulsingGauge(
+                            widget.result.confidence.toDouble(),
+                            themeAccent,
+                            isDark,
+                            textColor,
                           ),
                         ],
                       ),
@@ -528,6 +749,8 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
                           height: 1.4,
                         ),
                       ),
+                      // Animated Living Forensic Timeline Flowchart
+                      _buildForensicTimelineFlow(ai, themeAccent, isDark, textColor, borderColor),
                       if (widget.result.possibleIntermediatePlatform !=
                           null) ...[
                         const SizedBox(height: 12),
@@ -931,54 +1154,66 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
               // ==========================================
               // 5. INTERMEDIATE TECHNICAL PARAMETERS
               // ==========================================
-              if (_showIntermediateDetails) ...[
-                Text(
-                  'TECHNICAL PARAMETERS (RAW DATA)',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                    color: textColor,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: borderColor),
-                  ),
-                  child: Column(
-                    children: widget.result.technicalDetails.entries.map((e) {
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 5),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              e.key,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textMuted,
-                              ),
+              // ==========================================
+              // 5. INTERMEDIATE TECHNICAL PARAMETERS (ANIMATED EXPANSION)
+              // ==========================================
+              AnimatedSize(
+                duration: const Duration(milliseconds: 350),
+                curve: Curves.easeOutCubic,
+                child: _showIntermediateDetails
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'TECHNICAL PARAMETERS (RAW DATA)',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                              color: textColor,
                             ),
-                            Text(
-                              e.value.toString(),
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: textColor,
-                              ),
+                          ),
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: cardColor,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: borderColor),
                             ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-                const SizedBox(height: 20),
-              ],
+                            child: Column(
+                              children: widget.result.technicalDetails.entries.map((e) {
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 5),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        e.key,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.textMuted,
+                                        ),
+                                      ),
+                                      Text(
+                                        e.value.toString(),
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: textColor,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                        ],
+                      )
+                    : const SizedBox.shrink(),
+              ),
 
               // Disclaimer
               const Text(
