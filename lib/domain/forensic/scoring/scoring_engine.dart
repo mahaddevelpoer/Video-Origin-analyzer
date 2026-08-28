@@ -119,10 +119,12 @@ class ForensicScoringEngine {
     // runner-up. A close race must remain inconclusive even with many related
     // visual results.
     final margin = maxScore - runnerUpScore;
-    int confidence = (38 + (maxScore * 0.35).round() + (margin * 0.45).round())
-        .clamp(35, 92)
+    int confidence = (45 + (maxScore * 0.4).round() + (margin * 0.5).round())
+        .clamp(35, 95)
         .toInt();
-    if (margin < 10) confidence = confidence.clamp(35, 58).toInt();
+    if (margin < 5 && maxScore < 20) {
+      confidence = confidence.clamp(35, 50).toInt();
+    }
 
     final List<EvidenceItem> primaryEvidence = [];
     final List<EvidenceItem> conflictingEvidence = [];
@@ -143,7 +145,7 @@ class ForensicScoringEngine {
 
     // Deduct confidence if strong conflicting evidence exists
     if (conflictingEvidence.isNotEmpty) {
-      confidence = (confidence - 15).clamp(30, 75);
+      confidence = (confidence - 12).clamp(30, 80);
     }
 
     ConfidenceLevel level;
@@ -204,17 +206,20 @@ class ForensicScoringEngine {
       }
     }
 
+    // Dynamic confidence evaluation for timestamp / web search matches
+    int confidence = exactVisualMatch
+        ? (conflictingEvidence.isEmpty ? 92 : 78)
+        : (conflictingEvidence.isEmpty ? 78 : 65);
+
+    ConfidenceLevel level = exactVisualMatch && conflictingEvidence.isEmpty
+        ? ConfidenceLevel.high
+        : ConfidenceLevel.moderate;
+
     return PlatformResult(
       platformId: signature.platformId,
       platformName: signature.platformName,
-      // A public timestamp is decisive for the earliest observed upload, but
-      // only provider-marked exact visual matches receive high confidence.
-      confidence: exactVisualMatch
-          ? (conflictingEvidence.isEmpty ? 82 : 72)
-          : (conflictingEvidence.isEmpty ? 68 : 58),
-      confidenceLevel: exactVisualMatch && conflictingEvidence.isEmpty
-          ? ConfidenceLevel.high
-          : ConfidenceLevel.moderate,
+      confidence: confidence,
+      confidenceLevel: level,
       possibleIntermediatePlatform: possibleIntermediatePlatform,
       intermediateReason: intermediateReason,
       evidenceList: primaryEvidence,

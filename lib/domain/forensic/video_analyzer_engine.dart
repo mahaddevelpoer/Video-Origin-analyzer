@@ -537,11 +537,25 @@ class VideoAnalyzerEngine {
       technicalDetails: technicalDetails,
     );
 
+    int finalConfidence = evaluatedResult.confidence;
+    ConfidenceLevel finalLevel = evaluatedResult.confidenceLevel;
+
+    final aiAnalysis = onlineSearchResult?.aiAnalysis;
+    if (aiAnalysis != null && aiAnalysis.isAvailable && aiAnalysis.confidence > finalConfidence) {
+      // If AI investigation has high confidence and matches platform, calibrate final confidence
+      finalConfidence = aiAnalysis.confidence;
+      if (finalConfidence >= 80) {
+        finalLevel = ConfidenceLevel.high;
+      } else if (finalConfidence >= 55) {
+        finalLevel = ConfidenceLevel.moderate;
+      }
+    }
+
     final finalResult = PlatformResult(
       platformId: evaluatedResult.platformId,
       platformName: evaluatedResult.platformName,
-      confidence: evaluatedResult.confidence,
-      confidenceLevel: evaluatedResult.confidenceLevel,
+      confidence: finalConfidence,
+      confidenceLevel: finalLevel,
       possibleIntermediatePlatform:
           evaluatedResult.possibleIntermediatePlatform,
       intermediateReason: evaluatedResult.intermediateReason,

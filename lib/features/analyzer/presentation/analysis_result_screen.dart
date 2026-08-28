@@ -793,377 +793,347 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen>
               const SizedBox(height: 16),
 
               // ==========================================
-              // 2. BEGINNER VS INTERMEDIATE VIEW TOGGLE
+              // 2. GEMINI FORENSIC INTELLIGENCE CARD (TOP LEVEL)
               // ==========================================
-              InkWell(
-                onTap: () {
-                  setState(() {
-                    _showIntermediateDetails = !_showIntermediateDetails;
-                  });
-                },
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: _showIntermediateDetails
-                          ? AppColors.youtubeRed
-                          : borderColor,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        _showIntermediateDetails
-                            ? Icons.tune
-                            : Icons.analytics_outlined,
-                        color: AppColors.youtubeRed,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _showIntermediateDetails
-                                  ? 'Intermediate Technical View (Active)'
-                                  : 'Tap for More Details',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: textColor,
-                              ),
-                            ),
-                            Text(
-                              _showIntermediateDetails
-                                  ? 'Showing full codecs, timestamps, bitrates & raw evidence'
-                                  : 'Beginner summary only. Tap to reveal full evidence, timestamps, and scoring.',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: AppColors.textMuted,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Icon(
-                        _showIntermediateDetails
-                            ? Icons.expand_less
-                            : Icons.expand_more,
-                        color: AppColors.youtubeRed,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
               if (onlineRes?.aiAnalysis != null) ...[
-                _buildAiEvidenceCard(
-                  onlineRes!.aiAnalysis!,
-                  _showIntermediateDetails,
-                  isDark,
-                ),
-                const SizedBox(height: 20),
-              ],
-
-              // ==========================================
-              // 3. KEY EVIDENCE (Simplified vs Deep Dive)
-              // ==========================================
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    _showIntermediateDetails
-                        ? 'FORENSIC EVIDENCE & SCORING'
-                        : 'HOW WE FOUND OUT',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                      color: textColor,
-                    ),
-                  ),
-                  Text(
-                    '${widget.result.evidenceList.length} Signals',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: AppColors.textMuted,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-
-              ...widget.result.evidenceList.asMap().entries.map(
-                (entry) {
-                  final idx = entry.key;
-                  final item = entry.value;
-                  return MotionReveal(
-                    delay: Duration(milliseconds: 40 * (idx + 1)),
-                    child: _buildEvidenceCard(item, _showIntermediateDetails, isDark),
-                  );
-                },
-              ),
-
-              if (widget.result.conflictingEvidenceList.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                const Text(
-                  'CONTRADICTORY EVIDENCE DETECTED',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                    color: AppColors.strengthContradictory,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                ...widget.result.conflictingEvidenceList.map(
-                  (item) => _buildEvidenceCard(
-                    item,
+                MotionReveal(
+                  delay: const Duration(milliseconds: 100),
+                  child: _buildAiEvidenceCard(
+                    onlineRes!.aiAnalysis!,
                     _showIntermediateDetails,
                     isDark,
                   ),
                 ),
+                const SizedBox(height: 16),
               ],
 
-              const SizedBox(height: 20),
-
               // ==========================================
-              // 4. ONLINE TIMELINE & DISCOVERY SECTION
+              // 3. MORE DETAILS / TECHNICAL VIEW TOGGLE
               // ==========================================
-              if (onlineRes != null &&
-                  onlineRes.isSuccess &&
-                  onlineRes.matches.isNotEmpty) ...[
-                Text(
-                  'ONLINE SEARCH & TIMELINE (${onlineRes.totalMatches} Matches)',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                    color: textColor,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: borderColor),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            _buildPlatformBadge(
-                              'Instagram',
-                              onlineRes.summary['instagram'] ?? 0,
-                              isDark,
-                            ),
-                            const SizedBox(width: 8),
-                            _buildPlatformBadge(
-                              'TikTok',
-                              onlineRes.summary['tiktok'] ?? 0,
-                              isDark,
-                            ),
-                            const SizedBox(width: 8),
-                            _buildPlatformBadge(
-                              'YouTube',
-                              onlineRes.summary['youtube'] ?? 0,
-                              isDark,
-                            ),
-                            const SizedBox(width: 8),
-                            _buildPlatformBadge(
-                              'Other',
-                              onlineRes.summary['other'] ?? 0,
-                              isDark,
-                            ),
-                          ],
-                        ),
+              MotionReveal(
+                delay: const Duration(milliseconds: 180),
+                child: InkWell(
+                  onTap: () {
+                    setState(() {
+                      _showIntermediateDetails = !_showIntermediateDetails;
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                    decoration: BoxDecoration(
+                      color: cardColor,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: _showIntermediateDetails
+                            ? themeAccent
+                            : borderColor,
+                        width: _showIntermediateDetails ? 1.5 : 1.0,
                       ),
-                      const SizedBox(height: 14),
-                      const Divider(),
-                      const SizedBox(height: 10),
-                      ...onlineRes.matches.take(_showIntermediateDetails ? 10 : 3).map((
-                        match,
-                      ) {
-                        final postEv = match.platformEvidence;
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 10),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).scaffoldBackgroundColor,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: borderColor),
+                      boxShadow: [
+                        if (_showIntermediateDetails)
+                          BoxShadow(
+                            color: themeAccent.withAlpha(25),
+                            blurRadius: 12,
+                            offset: const Offset(0, 2),
                           ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _showIntermediateDetails
+                              ? Icons.tune_rounded
+                              : Icons.analytics_outlined,
+                          color: themeAccent,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 3,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.youtubeRed,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      match.classifiedPlatform.toUpperCase(),
-                                      style: const TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      match.title,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: textColor,
-                                      ),
-                                    ),
-                                  ),
-                                  if (match.matchType == 'exact_match')
-                                    Container(
-                                      margin: const EdgeInsets.only(left: 8),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 3,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.strengthStrong
-                                            .withAlpha(20),
-                                        borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(
-                                          color: AppColors.strengthStrong,
-                                        ),
-                                      ),
-                                      child: const Text(
-                                        'EXACT',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppColors.strengthStrong,
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              OutlinedButton.icon(
-                                onPressed: () => _showMatchDetails(match),
-                                icon: const Icon(
-                                  Icons.visibility_outlined,
-                                  size: 16,
+                              Text(
+                                _showIntermediateDetails
+                                    ? 'Detailed Forensic View (Active)'
+                                    : 'Tap for More Details & Evidence',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: textColor,
                                 ),
-                                label: const Text('View details'),
                               ),
-                              if (postEv != null) ...[
-                                const SizedBox(height: 6),
-                                if (match.matchType == 'exact_match')
-                                  const Text(
-                                    'Exact match found. Timestamp is based on the public post itself.',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.strengthStrong,
-                                    ),
-                                  ),
-                                if (postEv.platformPostTimestamp != null)
-                                  Text(
-                                    'Upload Date: ${_formatFriendlyTimestamp(postEv.platformPostTimestamp!)}',
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.youtubeRed,
-                                    ),
-                                  ),
-                                if (postEv.authorUsername != null)
-                                  Text(
-                                    'Creator: @${postEv.authorUsername}',
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: AppColors.textMuted,
-                                    ),
-                                  ),
-                                if (_showIntermediateDetails) ...[
-                                  const SizedBox(height: 4),
-                                  Wrap(
-                                    spacing: 12,
-                                    runSpacing: 4,
-                                    children: [
-                                      if (postEv.likesCount != null)
-                                        Text(
-                                          'Likes: ${_formatNumber(postEv.likesCount!)}',
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            color: AppColors.textMuted,
-                                          ),
-                                        ),
-                                      if (postEv.commentsCount != null)
-                                        Text(
-                                          'Comments: ${_formatNumber(postEv.commentsCount!)}',
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            color: AppColors.textMuted,
-                                          ),
-                                        ),
-                                      if (postEv.viewsCount != null)
-                                        Text(
-                                          'Views: ${_formatNumber(postEv.viewsCount!)}',
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            color: AppColors.textMuted,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ],
-                              ],
+                              Text(
+                                _showIntermediateDetails
+                                    ? 'Showing all evidence signals, web matches & raw codecs'
+                                    : 'Tap to expand full forensic signals, web matches, and technical parameters.',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.textMuted,
+                                ),
+                              ),
                             ],
                           ),
-                        );
-                      }),
-                    ],
+                        ),
+                        Icon(
+                          _showIntermediateDetails
+                              ? Icons.expand_less_rounded
+                              : Icons.expand_more_rounded,
+                          color: themeAccent,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 20),
-              ],
+              ),
+
+              const SizedBox(height: 16),
 
               // ==========================================
-              // 5. INTERMEDIATE TECHNICAL PARAMETERS
-              // ==========================================
-              // ==========================================
-              // 5. INTERMEDIATE TECHNICAL PARAMETERS (ANIMATED EXPANSION)
+              // 4. ANIMATED MORE DETAILS DRAWER (COLLAPSIBLE)
               // ==========================================
               AnimatedSize(
-                duration: const Duration(milliseconds: 350),
+                duration: const Duration(milliseconds: 400),
                 curve: Curves.easeOutCubic,
                 child: _showIntermediateDetails
                     ? Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // KEY EVIDENCE & SIGNALS
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'FORENSIC EVIDENCE & SCORING',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                  color: textColor,
+                                ),
+                              ),
+                              Text(
+                                '${widget.result.evidenceList.length} Signals',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.textMuted,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+
+                          ...widget.result.evidenceList.asMap().entries.map(
+                            (entry) {
+                              final item = entry.value;
+                              return _buildEvidenceCard(item, _showIntermediateDetails, isDark);
+                            },
+                          ),
+
+                          if (widget.result.conflictingEvidenceList.isNotEmpty) ...[
+                            const SizedBox(height: 16),
+                            const Text(
+                              'CONTRADICTORY EVIDENCE DETECTED',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
+                                color: AppColors.strengthContradictory,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            ...widget.result.conflictingEvidenceList.map(
+                              (item) => _buildEvidenceCard(
+                                item,
+                                _showIntermediateDetails,
+                                isDark,
+                              ),
+                            ),
+                          ],
+
+                          const SizedBox(height: 20),
+
+                          // ONLINE SEARCH & TIMELINE SECTION
+                          if (onlineRes != null &&
+                              onlineRes.isSuccess &&
+                              onlineRes.matches.isNotEmpty) ...[
+                            Text(
+                              'ONLINE SEARCH & TIMELINE (${onlineRes.totalMatches} Matches)',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
+                                color: textColor,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: cardColor,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: borderColor),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: Row(
+                                      children: [
+                                        _buildPlatformBadge(
+                                          'Instagram',
+                                          onlineRes.summary['instagram'] ?? 0,
+                                          isDark,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        _buildPlatformBadge(
+                                          'TikTok',
+                                          onlineRes.summary['tiktok'] ?? 0,
+                                          isDark,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        _buildPlatformBadge(
+                                          'YouTube',
+                                          onlineRes.summary['youtube'] ?? 0,
+                                          isDark,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        _buildPlatformBadge(
+                                          'Other',
+                                          onlineRes.summary['other'] ?? 0,
+                                          isDark,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  const Divider(),
+                                  const SizedBox(height: 10),
+                                  ...onlineRes.matches.map((match) {
+                                    final postEv = match.platformEvidence;
+                                    return Container(
+                                      margin: const EdgeInsets.only(bottom: 10),
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: isDark ? const Color(0xFF161616) : Theme.of(context).scaffoldBackgroundColor,
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(color: borderColor),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 8,
+                                                  vertical: 3,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: AppColors.youtubeRed,
+                                                  borderRadius: BorderRadius.circular(6),
+                                                ),
+                                                child: Text(
+                                                  match.classifiedPlatform.toUpperCase(),
+                                                  style: const TextStyle(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.white,
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 10),
+                                              Expanded(
+                                                child: Text(
+                                                  match.title,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: textColor,
+                                                  ),
+                                                ),
+                                              ),
+                                              if (match.matchType == 'exact_match')
+                                                Container(
+                                                  margin: const EdgeInsets.only(left: 8),
+                                                  padding: const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 3,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: AppColors.strengthStrong.withAlpha(20),
+                                                    borderRadius: BorderRadius.circular(6),
+                                                    border: Border.all(
+                                                      color: AppColors.strengthStrong,
+                                                    ),
+                                                  ),
+                                                  child: const Text(
+                                                    'EXACT',
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: AppColors.strengthStrong,
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 8),
+                                          OutlinedButton.icon(
+                                            onPressed: () => _showMatchDetails(match),
+                                            icon: const Icon(
+                                              Icons.visibility_outlined,
+                                              size: 16,
+                                            ),
+                                            label: const Text('View details'),
+                                          ),
+                                          if (postEv != null) ...[
+                                            const SizedBox(height: 6),
+                                            if (match.matchType == 'exact_match')
+                                              const Text(
+                                                'Exact match found. Timestamp is based on public post itself.',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: AppColors.strengthStrong,
+                                                ),
+                                              ),
+                                            if (postEv.platformPostTimestamp != null)
+                                              Text(
+                                                'Upload Date: ${_formatFriendlyTimestamp(postEv.platformPostTimestamp!)}',
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: AppColors.youtubeRed,
+                                                ),
+                                              ),
+                                            if (postEv.authorUsername != null)
+                                              Text(
+                                                'Creator: @${postEv.authorUsername}',
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: AppColors.textMuted,
+                                                ),
+                                              ),
+                                          ],
+                                        ],
+                                      ),
+                                    );
+                                  }),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                          ],
+
+                          // RAW TECHNICAL PARAMETERS
                           Text(
                             'TECHNICAL PARAMETERS (RAW DATA)',
                             style: TextStyle(
