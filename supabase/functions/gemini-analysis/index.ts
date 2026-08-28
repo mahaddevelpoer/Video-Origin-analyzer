@@ -24,10 +24,14 @@ interface RequestPayload {
   }>;
 }
 
+type InvestigationMode = "verified_origin" | "deepfake_risk" | "cross_platform_repost" | "unconfirmed_copy";
+
 interface AiAnalysisResponse {
   status: "success" | "unavailable";
   model: string;
   summary: string;
+  verdict_headline: string;
+  investigation_mode: InvestigationMode;
   context_analysis: string;
   likely_platform: Platform;
   confidence: number;
@@ -48,6 +52,8 @@ function unavailableAi(errorCode: string, message: string): AiAnalysisResponse {
     status: "unavailable",
     model: "none",
     summary: message,
+    verdict_headline: "AI INVESTIGATION OFFLINE",
+    investigation_mode: "unconfirmed_copy",
     context_analysis: "Visual context analysis is unavailable.",
     likely_platform: "unknown",
     confidence: 0,
@@ -193,13 +199,16 @@ serve(async (req: Request) => {
       .map((m, i) => `[${i + 1}] Platform: ${m.platform} | Title: "${m.title}" | Link: ${m.link}${m.snippet ? ` | Snippet: "${m.snippet}"` : ""}`)
       .join("\n");
 
-    const prompt = `You are an expert forensic video origin analyst. Analyze the video frame(s), extracted OCR text, and candidate web matches.
+    const prompt = `You are a lead forensic video intelligence detective. Analyze the video frame(s), extracted OCR text, and candidate web matches.
 
-INSTRUCTIONS:
-1. Examine visual UI elements: aspect ratio (vertical 9:16 vs horizontal 16:9), watermarks (TikTok bouncing logo, Instagram Reels camera icon/handle, YouTube Shorts icon), font styles, audio stickers, like/comment button layouts, and caption positions.
-2. Cross-reference the candidate web search matches below with the image content and OCR text to determine if the video originated from Instagram, TikTok, YouTube, Facebook, or elsewhere.
-3. If candidate web matches match the video content or OCR handles/titles, use them to confirm platform, calculate high confidence (70-95%), and cite source URLs.
-4. If candidate matches conflict or show zero matches, analyze pure visual cues and state reasons clearly.
+INSTRUCTIONS & FORENSIC DUTIES:
+1. Perform deep investigation cross-referencing visual features (aspect ratios, platform-specific UI overlay stickers/fonts/buttons), OCR text handles, and candidate web search matches.
+2. Determine the AI-Driven UI Mode (investigation_mode):
+   - "verified_origin": High confidence (>=70%) match found with clear creator or platform URL proof.
+   - "deepfake_risk": Visual/audio manipulation detected, high risk level, or severe evidence conflicts.
+   - "cross_platform_repost": Video found reposted across different platforms (e.g. TikTok -> Reels / Shorts).
+   - "unconfirmed_copy": Low confidence / inconclusive matches requiring user search assistance.
+3. Formulate an eye-catching verdict_headline (ALL CAPS, e.g. "AUTHENTIC TIKTOK ORIGINAL VERIFIED", "MANIPULATED / RE-UPLOAD WARNING ALERT", "CROSS-PLATFORM REPOST TIMELINE DETECTED").
 
 Candidate Web Search Matches:
 ${candidateMatchesText || "None (Visual analysis only)"}
@@ -207,16 +216,18 @@ ${candidateMatchesText || "None (Visual analysis only)"}
 Extracted OCR Text / Handles:
 ${body.ocr_query || "None"}
 
-Return ONLY a valid JSON object (no markdown formatting, no text outside JSON) with these fields:
+Return ONLY a valid JSON object (no markdown, no extra text) with these exact fields:
 {
+  "verdict_headline": "SHORT IMPACTFUL HEADLINE",
+  "investigation_mode": "verified_origin|deepfake_risk|cross_platform_repost|unconfirmed_copy",
   "summary": "Clear, concise 1-sentence conclusion about the video origin and content.",
-  "context_analysis": "Detailed forensic breakdown analyzing scene visual features, UI overlay elements, OCR text/handles, and web search evidence.",
+  "context_analysis": "Detailed 2-3 sentence professional forensic breakdown analyzing visual features, UI overlay elements, OCR handles, and web evidence.",
   "likely_platform": "instagram|tiktok|youtube|facebook|other|unknown",
   "confidence": 0 to 100,
   "evidence_reasons": ["Specific evidence point 1", "Specific evidence point 2"],
   "conflicts": ["Any conflicting visual or web evidence point"],
-  "recommended_search_queries": ["Suggested search query to locate original video"],
-  "source_urls": ["URL from candidate matches that confirms origin"],
+  "recommended_search_queries": ["Suggested search query"],
+  "source_urls": ["URL confirming origin"],
   "risk_level": "low|medium|high|unknown"
 }`;
 
@@ -280,9 +291,21 @@ Return ONLY a valid JSON object (no markdown formatting, no text outside JSON) w
           continue;
         }
 
+        const rawMode = typeof parsed.investigation_mode === "string" ? parsed.investigation_mode.toLowerCase() : "";
+        let invMode: InvestigationMode = "unconfirmed_copy";
+        if (rawMode === "verified_origin" || rawMode === "deepfake_risk" || rawMode === "cross_platform_repost" || rawMode === "unconfirmed_copy") {
+          invMode = rawMode as InvestigationMode;
+        } else if (clampConfidence(parsed.confidence) >= 70) {
+          invMode = "verified_origin";
+        }
+
         const result: AiAnalysisResponse = {
           status: "success",
           model: modelName,
+          verdict_headline: typeof parsed.verdict_headline === "string" && parsed.verdict_headline.trim().length > 0
+            ? parsed.verdict_headline.trim().toUpperCase()
+            : "AI FORENSIC INVESTIGATION COMPLETED",
+          investigation_mode: invMode,
           summary:
             typeof parsed.summary === "string" && parsed.summary.trim().length > 0
               ? parsed.summary.trim()

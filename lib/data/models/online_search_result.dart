@@ -1,9 +1,18 @@
 enum DateConfidence { high, medium, low, unknown }
 
+enum InvestigationUiMode {
+  verifiedOrigin,
+  deepfakeRisk,
+  crossPlatformRepost,
+  unconfirmedCopy,
+}
+
 class AiEvidenceAnalysis {
   final String status; // success | unavailable
   final String model;
   final String summary;
+  final String verdictHeadline;
+  final InvestigationUiMode investigationMode;
   final String contextAnalysis;
   final String likelyPlatform;
   final int confidence;
@@ -18,6 +27,8 @@ class AiEvidenceAnalysis {
     required this.status,
     required this.model,
     required this.summary,
+    this.verdictHeadline = 'AI FORENSIC INVESTIGATION',
+    this.investigationMode = InvestigationUiMode.unconfirmedCopy,
     required this.contextAnalysis,
     required this.likelyPlatform,
     required this.confidence,
@@ -35,6 +46,8 @@ class AiEvidenceAnalysis {
     'status': status,
     'model': model,
     'summary': summary,
+    'verdict_headline': verdictHeadline,
+    'investigation_mode': investigationMode.name,
     'context_analysis': contextAnalysis,
     'likely_platform': likelyPlatform,
     'confidence': confidence,
@@ -81,10 +94,24 @@ class AiEvidenceAnalysis {
         ? rawConfidence.round().clamp(0, 100).toInt()
         : 0;
 
+    final rawModeStr = (json['investigation_mode'] as String? ?? '').toLowerCase();
+    InvestigationUiMode mode = InvestigationUiMode.unconfirmedCopy;
+    if (rawModeStr == 'verified_origin' || rawModeStr == 'verifiedorigin') {
+      mode = InvestigationUiMode.verifiedOrigin;
+    } else if (rawModeStr == 'deepfake_risk' || rawModeStr == 'deepfakerisk') {
+      mode = InvestigationUiMode.deepfakeRisk;
+    } else if (rawModeStr == 'cross_platform_repost' || rawModeStr == 'crossplatformrepost') {
+      mode = InvestigationUiMode.crossPlatformRepost;
+    } else if (confidence >= 70) {
+      mode = InvestigationUiMode.verifiedOrigin;
+    }
+
     return AiEvidenceAnalysis(
       status: json['status'] as String? ?? 'unavailable',
-      model: json['model'] as String? ?? 'gemini-2.0-flash',
+      model: json['model'] as String? ?? 'gemini-2.5-flash',
       summary: json['summary'] as String? ?? 'AI evidence review unavailable.',
+      verdictHeadline: json['verdict_headline'] as String? ?? 'AI FORENSIC INVESTIGATION',
+      investigationMode: mode,
       contextAnalysis: json['context_analysis'] as String? ?? 'Visual context analysis is unavailable.',
       likelyPlatform: normalizePlatform(json['likely_platform']),
       confidence: confidence,

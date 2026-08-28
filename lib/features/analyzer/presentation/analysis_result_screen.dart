@@ -303,9 +303,38 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
     );
   }
 
+  Color _getThemeAccentColor(AiEvidenceAnalysis? ai) {
+    if (ai == null || !ai.isAvailable) return AppColors.youtubeRed;
+    switch (ai.investigationMode) {
+      case InvestigationUiMode.verifiedOrigin:
+        return const Color(0xFF00C853); // Emerald Green
+      case InvestigationUiMode.deepfakeRisk:
+        return const Color(0xFFFF1744); // Crimson Red
+      case InvestigationUiMode.crossPlatformRepost:
+        return const Color(0xFF7C4DFF); // Deep Violet
+      case InvestigationUiMode.unconfirmedCopy:
+        return const Color(0xFFFF9100); // Amber Orange
+    }
+  }
+
+  IconData _getModeIcon(AiEvidenceAnalysis? ai) {
+    if (ai == null || !ai.isAvailable) return Icons.verified_user_outlined;
+    switch (ai.investigationMode) {
+      case InvestigationUiMode.verifiedOrigin:
+        return Icons.verified_rounded;
+      case InvestigationUiMode.deepfakeRisk:
+        return Icons.gpp_maybe_rounded;
+      case InvestigationUiMode.crossPlatformRepost:
+        return Icons.alt_route_rounded;
+      case InvestigationUiMode.unconfirmedCopy:
+        return Icons.saved_search_rounded;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final onlineRes = widget.result.onlineSearchResult;
+    final ai = onlineRes?.aiAnalysis;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor =
         Theme.of(context).textTheme.bodyLarge?.color ?? AppColors.textDark;
@@ -313,6 +342,8 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
         Theme.of(context).cardTheme.color ??
         (isDark ? const Color(0xFF1E1E1E) : AppColors.lightSurface);
     final borderColor = Theme.of(context).dividerColor;
+    final themeAccent = _getThemeAccentColor(ai);
+    final modeIcon = _getModeIcon(ai);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -343,21 +374,22 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // ==========================================
-              // 1. BEGINNER-FRIENDLY HERO RESULT CARD
+              // 1. AI-DRIVEN DYNAMIC HERO RESULT CARD
               // ==========================================
               MotionReveal(
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 350),
-                  curve: Curves.easeOut,
+                  duration: const Duration(milliseconds: 400),
+                  curve: Curves.easeOutCubic,
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     color: cardColor,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.youtubeRed, width: 1.5),
+                    border: Border.all(color: themeAccent, width: 2),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.youtubeRed.withAlpha(isDark ? 35 : 20),
-                        blurRadius: 16,
+                        color: themeAccent.withAlpha(isDark ? 55 : 35),
+                        blurRadius: 20,
+                        spreadRadius: 1,
                         offset: const Offset(0, 4),
                       ),
                     ],
@@ -368,15 +400,29 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            _hasVerifiedPlatformTimestamp
-                                ? 'EARLIEST VERIFIED PUBLIC MATCH'
-                                : 'LIKELY SOURCE PLATFORM',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              letterSpacing: 1.0,
-                              color: AppColors.textMuted,
-                              fontWeight: FontWeight.bold,
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Icon(modeIcon, color: themeAccent, size: 18),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    ai != null && ai.isAvailable
+                                        ? ai.verdictHeadline
+                                        : (_hasVerifiedPlatformTimestamp
+                                            ? 'EARLIEST VERIFIED PUBLIC MATCH'
+                                            : 'LIKELY SOURCE PLATFORM'),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      letterSpacing: 0.8,
+                                      color: themeAccent,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           Container(
@@ -385,21 +431,24 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.youtubeRed.withAlpha(24),
+                              color: themeAccent.withAlpha(24),
                               borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: themeAccent.withAlpha(90)),
                             ),
-                            child: const Text(
-                              'BEGINNER VIEW',
+                            child: Text(
+                              ai != null && ai.isAvailable
+                                  ? ai.investigationMode.name.toUpperCase()
+                                  : 'STANDARD VIEW',
                               style: TextStyle(
-                                fontSize: 11,
+                                fontSize: 10,
                                 fontWeight: FontWeight.bold,
-                                color: AppColors.youtubeRed,
+                                color: themeAccent,
                               ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 12),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -410,7 +459,7 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
                                 Text(
                                   widget.result.platformName.toUpperCase(),
                                   style: TextStyle(
-                                    fontSize: 26,
+                                    fontSize: 28,
                                     fontWeight: FontWeight.bold,
                                     color: textColor,
                                   ),
@@ -418,16 +467,16 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
                                 const SizedBox(height: 4),
                                 Text(
                                   widget.result.confidenceLevel.displayName,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.youtubeRed,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: themeAccent,
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          // Animated Circular Confidence Gauge
+                          // Animated Circular Confidence Gauge with AI Theme Color
                           TweenAnimationBuilder<double>(
                             tween: Tween<double>(
                               begin: 0,
@@ -437,19 +486,19 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
                             curve: Curves.easeOutCubic,
                             builder: (context, value, _) {
                               return SizedBox(
-                                width: 54,
-                                height: 54,
+                                width: 56,
+                                height: 56,
                                 child: Stack(
                                   alignment: Alignment.center,
                                   children: [
                                     CircularProgressIndicator(
                                       value: value,
-                                      strokeWidth: 4.5,
+                                      strokeWidth: 5.0,
                                       backgroundColor: isDark
                                           ? Colors.white10
                                           : AppColors.lightBorder,
-                                      valueColor: const AlwaysStoppedAnimation<Color>(
-                                        AppColors.youtubeRed,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        themeAccent,
                                       ),
                                     ),
                                     Text(
@@ -470,7 +519,7 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
                       const SizedBox(height: 12),
                       // Easy-to-understand plain language explanation
                       Text(
-                        _getBeginnerSummary(),
+                        ai != null && ai.isAvailable ? ai.summary : _getBeginnerSummary(),
                         style: TextStyle(
                           fontSize: 13,
                           color: isDark
@@ -967,16 +1016,14 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
     final textColor =
         Theme.of(context).textTheme.bodyLarge?.color ?? AppColors.textDark;
     final isAvailable = ai.isAvailable;
-    final badgeColor = isAvailable
-        ? AppColors.strengthModerate
-        : AppColors.strengthNeutral;
+    final badgeColor = _getThemeAccentColor(ai);
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor),
+        border: Border.all(color: badgeColor.withAlpha(120), width: 1.2),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -987,7 +1034,7 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'VISUAL CONTEXT & AI REVIEW',
+                  'GEMINI FORENSIC INTELLIGENCE',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
@@ -1004,7 +1051,7 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
                   border: Border.all(color: badgeColor.withAlpha(120)),
                 ),
                 child: Text(
-                  isAvailable ? '${ai.confidence}% AI' : 'OFFLINE',
+                  isAvailable ? '${ai.confidence}% AI CONFIDENCE' : 'OFFLINE',
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
@@ -1020,7 +1067,7 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
             style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, height: 1.35, color: textColor),
           ),
           if (isAvailable && ai.contextAnalysis.isNotEmpty) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -1031,11 +1078,17 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Multi-Modal Forensic Context',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textMuted),
+                  Row(
+                    children: [
+                      Icon(Icons.find_in_page_outlined, size: 14, color: badgeColor),
+                      const SizedBox(width: 6),
+                      const Text(
+                        'Forensic Multi-Modal Analysis',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textMuted),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Text(
                     ai.contextAnalysis,
                     style: TextStyle(fontSize: 12, height: 1.4, color: textColor),
@@ -1045,44 +1098,129 @@ class _AnalysisResultScreenState extends ConsumerState<AnalysisResultScreen> {
             ),
           ],
           if (isAvailable) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Wrap(
               spacing: 8,
               runSpacing: 6,
               children: [
                 _buildAiChip(
                   'Platform: ${ai.likelyPlatform.toUpperCase()}',
-                  AppColors.youtubeRed,
+                  badgeColor,
                 ),
                 _buildAiChip('Risk: ${ai.riskLevel.toUpperCase()}', badgeColor),
+                _buildAiChip('Mode: ${ai.investigationMode.name.toUpperCase()}', badgeColor),
                 _buildAiChip(ai.model, AppColors.textMuted),
               ],
             ),
           ],
+          if (isAvailable && ai.recommendedSearchQueries.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            const Text(
+              'RECOMMENDED SEARCH QUERIES (TAP TO COPY)',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.6,
+                color: AppColors.textMuted,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: ai.recommendedSearchQueries.map((query) {
+                return InkWell(
+                  onTap: () {
+                    Share.share(query);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Copied query: "$query"'),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: badgeColor.withAlpha(16),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: badgeColor.withAlpha(70)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.search_rounded, size: 12, color: badgeColor),
+                        const SizedBox(width: 6),
+                        Text(
+                          query,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: textColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+          if (isAvailable && ai.sourceUrls.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            const Text(
+              'VERIFIED SOURCE URLS',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.6,
+                color: AppColors.textMuted,
+              ),
+            ),
+            const SizedBox(height: 6),
+            ...ai.sourceUrls.map((url) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  children: [
+                    const Icon(Icons.link, size: 14, color: AppColors.youtubeRed),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        url,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.youtubeRed,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.copy, size: 14),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => Share.share(url),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
           if (isIntermediate && isAvailable) ...[
             if (ai.evidenceReasons.isNotEmpty) ...[
               const SizedBox(height: 12),
-              _buildAiList('Reasons', ai.evidenceReasons, textColor),
+              _buildAiList('Key Evidence Reasons', ai.evidenceReasons, textColor),
             ],
             if (ai.conflicts.isNotEmpty) ...[
               const SizedBox(height: 12),
               _buildAiList(
-                'Conflicts',
+                'Conflicting Signals',
                 ai.conflicts,
                 AppColors.strengthContradictory,
               ),
-            ],
-            if (ai.recommendedSearchQueries.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              _buildAiList(
-                'Recommended searches',
-                ai.recommendedSearchQueries,
-                textColor,
-              ),
-            ],
-            if (ai.sourceUrls.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              _buildAiList('AI sources', ai.sourceUrls, AppColors.textMuted),
             ],
           ],
           if (!isAvailable && ai.errorCode != null) ...[
